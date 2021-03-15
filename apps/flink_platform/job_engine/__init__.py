@@ -4,11 +4,12 @@
 # @File    : __init__
 # @Software: PyCharm
 # @Contact : xzregg@gmail.com
-# @Desc    : 
-
+# @Desc    :
+import json
+import logging
 
 import requests
-from framework.utils import ObjectDict, OrderedDict
+from framework.utils import ObjectDict, OrderedDict,trace_msg
 from framework.utils.cache import CacheAttribute
 from framework.utils.myenum import Enum
 from furl import furl
@@ -104,14 +105,20 @@ class BaseFlinkJobEngine(object):
         from ..models.flink_job import FlinkJob, TaskTypes
         ret = {'status': FlinkJob.Status.Error}
         if self.flink_job_id and self.flink_job_url:
-            base_furl = furl(self.flink_job_url)
-            base_furl.fragment = ''
-            base_furl.path.add('jobs').add(self.flink_job_id)
-            rsp = requests.get(base_furl.url, timeout=3)
-            # flink job status https://ci.apache.org/projects/flink/flink-docs-release-1.12/zh/ops/rest_api.html
-            ret = rsp.json()
-            ret['status'] = ret['state']
-        self.status_info[TaskTypes.MainTask].update(ret)
+            try:
+                base_furl = furl(self.flink_job_url)
+                base_furl.fragment = ''
+                base_furl.path.add('jobs').add(self.flink_job_id)
+                rsp = requests.get(base_furl.url, timeout=3)
+                # flink job status https://ci.apache.org/projects/flink/flink-docs-release-1.12/zh/ops/rest_api.html
+                ret = rsp.json()
+                ret['status'] = ret['state']
+                if ret['status'] != FlinkJob.Status.Finished:
+                    self.status_info[TaskTypes.MainTask].update(ret)
+            except json.decoder.JSONDecodeError as e:
+                pass
+            except Exception as e:
+                logging.error(trace_msg())
         return self.status_info
 
     def delete_job(self):

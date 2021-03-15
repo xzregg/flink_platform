@@ -4,8 +4,8 @@ import datetime
 import logging
 from typing import List
 
-from config.celery_app import app, Task
 from celery_task_result.models import AssociatedTaskResult, ReturnResultTask
+from config.celery_app import app, Task
 from .models.flink_job import FlinkJob
 
 
@@ -39,13 +39,14 @@ def restart_flink_job(self: Task, flink_job_model_id, is_force, use_last_savepoi
 
 @app.task(bind=True, ignore_result=True)
 def cron_refresh_flink_job_info(self: Task):
-    flink_jobs: List[FlinkJob] = FlinkJob.objects.filter(
-            status__in=[FlinkJob.Status.Running, FlinkJob.Status.Pending]).exclude(job_id='').defer('code_paragraphs',
-                                                                                                    'flink_table_config',
-                                                                                                    'task_properties')
+    flink_jobs: List[FlinkJob] = FlinkJob.objects.exclude(
+            status__in=[FlinkJob.Status.Finished, FlinkJob.Status.Abort, FlinkJob.Status.Error]).exclude(job_id='').defer(
+        'code_paragraphs',
+        'flink_table_config',
+        'task_properties')
     for flink_job_mode in flink_jobs:
         flink_job_mode.update_status_info()
-        logging.info("%s update_status_info  " % (flink_job_mode.name))
+        logging.info("%s update_status_info  [%s]" % (flink_job_mode.name, flink_job_mode.status))
 
 
 @app.task(ignore_result=True)

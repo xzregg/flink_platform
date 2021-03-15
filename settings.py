@@ -15,3 +15,4 @@ from djmyframework.settings import *
 
 PROJECT_ROOT = BASE_DIR
 
+from config.logging_config import LOGGING
