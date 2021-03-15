@@ -283,7 +283,7 @@ class FlinkJobEngine(BaseFlinkJobEngine):
             self.state.code = EngineStateCode.FAILURE
         return self.state
 
-    def wait_status(self, status_list, timeout=120):
+    def wait_status(self, status_list, timeout=180):
         i = 0
         while 1:
             time.sleep(1)
