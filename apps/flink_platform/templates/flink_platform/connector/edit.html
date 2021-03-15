@@ -1,0 +1,251 @@
+{% extends "framework/base.html" %}
+
+{% block header %}
+    <title>{{ _('Flink 连接器 编辑') }}</title>
+{% endblock %}
+
+
+{% block content %}
+    <div id="vue-container" v-cloak>
+        <div class="row header">
+            <div class="col-sm-5">
+                <h1>{{ _('Flink 连接器') }}
+                    <small>{{ _('编辑') }}</small>
+                </h1>
+            </div>
+        </div>
+
+        <hr>
+        <br>
+
+        <form class="form-horizontal"
+              role="form">
+            <div class="row edit-form-container">
+                <div class="col-sm-12">
+                
+
+
+        <div class="form-group" style="display:none">
+            <label class="col-sm-3 control-label no-padding-right" for="id_id">
+                
+                {{ _('id') }} </label>
+
+            <div class="col-sm-8">
+                 <input type="number" id="id_id" name="id" v-model="model.id"
+                        class="form-control" value="{{ data.id or ""}}"
+                        
+                         >
+                <div id="help_text_id" class="middle text-danger help_text"></div>
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_name">
+                <span class="text-danger">*</span>
+                {{ _('名称') }} </label>
+
+            <div class="col-sm-8">
+                <input type="text" id="id_name" name="name" v-model="model.name"
+                        class="form-control" value="{{ data.name or ""}}"
+                        maxlength=100
+                        required=true >
+                <div id="help_text_name" class="middle text-danger help_text"></div>
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_alias">
+                
+                {{ _('别名') }} </label>
+
+            <div class="col-sm-8">
+                <input type="text" id="id_alias" name="alias" v-model="model.alias"
+                        class="form-control" value="{{ data.alias or ""}}"
+                        maxlength=100
+                         >
+                <div id="help_text_alias" class="middle text-danger help_text"></div>
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_project">
+                
+                {{ _('所属项目') }} </label>
+
+            <div class="col-sm-8">
+                <select v-select2 v-model="model.project" class="form-control select2" id="id_project" data-placeholder="{{ _('根') }}" name="project"
+                        data-url="{{ url('flink_platform.project.list') }}?" >
+                    <option value="{{ data.project or '' }}" >{{ data.project or _('无') }} </option>
+                </select>
+                <div id="help_text_project" class="middle text-danger help_text"></div>
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_type">
+                <span class="text-danger">*</span>
+                {{ _('类型') }} </label>
+
+            <div class="col-sm-8">
+                <select v-select2 v-model="model.type" class="form-control col-lg-5 select2" id="id_type" data-placeholder="{{ _('类型') }}" name="type" svalue="{{ data.type }}">
+                    {% for o in data.serializer.instance.get_fields_map().type.choices %}
+                        <option value="{{ o.0 }}">{{ o.1 }}</option>
+                    {% endfor %}
+                </select>
+
+                <div id="help_text_type" class="middle text-danger help_text"></div>
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_config">
+                
+                {{ _('配置') }} </label>
+
+            <div class="col-sm-8">
+                <textarea class="form-control limited"  id="id_config" name="config" v-model="model.config"
+                        
+                         >{{ data.config or "" }}</textarea>
+                <div id="help_text_config" class="middle text-danger help_text"></div>
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_create_datetime">
+                
+                {{ _('创建时间') }} </label>
+
+            <div class="col-sm-8">
+                    <input type="text" id="id_create_datetime" name="create_datetime" v-model="model.create_datetime"
+                           class="form-control datetime " value="{{ data.create_datetime  or "" }}"
+                            >
+                <div id="help_text_create_datetime" class="middle text-danger help_text"></div>
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_update_datetime">
+                
+                {{ _('更新时间') }} </label>
+
+            <div class="col-sm-8">
+                    <input type="text" id="id_update_datetime" name="update_datetime" v-model="model.update_datetime"
+                           class="form-control datetime " value="{{ data.update_datetime  or "" }}"
+                            >
+                <div id="help_text_update_datetime" class="middle text-danger help_text"></div>
+            </div>
+        </div>
+                </div>
+            </div>
+
+
+            <div class="row pane edit-save-bar">
+                <div class="col-sm-offset-3 col-sm-3">
+                    <input id="reset-btn" class="btn btn-default" type="reset" value="{{ _('重 置') }}">
+                    <button @click="saveModel(true)" :disabled="isExecuting" class="btn btn-primary " type="button">
+                        {{ _('保 存') }}
+                    </button>
+                </div>
+                <div class="col-sm-6">
+                    <div class="pull-right">
+                        <button @click="saveModel(false)" :disabled="isExecuting" class="btn btn-info " type="button">
+                            {{ _('保存并继续编辑') }}
+                        </button>
+                        <button @click="saveModelAddOther" :disabled="isExecuting" class="btn btn-info " type="button">
+                            {{ _('保存并增加另一个') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
+        </form>
+    </div>
+    <script>
+        var modelData = Object({{ data|json_dumps|safe }}) || Object({"id": 1, "_version": 0, "name": "", "alias": "", "type": ""})
+        
+        var modelShema = Object({{ data.serializer.to_schema()|json_dumps|safe }})
+
+
+        var vue_app = new Vue({
+            el: '#vue-container',
+            delimiters: ['((', '))'],
+            data() {
+                return {
+                    model: modelData,
+                    isExecuting: false,
+                };
+            },
+            watch: {},
+            methods: {
+                ajaxPostData: function (post_data, callback) {
+                    clearHelpText()
+                    this.isExecuting = true
+                    $.ajax({
+                        async: true,
+                        type: "POST",
+                        url: "{{ url('flink_platform.connector.save') }}?{% if data.id %}id={{ data.id }}{% endif %}{% if request.query_params.is_copy %}&is_copy=1{% endif %}",
+                        dataType: 'json',
+                        data: JSON.stringify(post_data),
+                        contentType: 'application/json',
+                        success: (rsp) => {
+                            if (rsp.code == 0) {
+                                this.$message.success(rsp.msg, 1)
+                                clearHelpText()
+                                callback ? callback(rsp) : null
+
+                            } else {
+                                rsp.data ? addHelpText(rsp.data) : alertMsg(rsp.msg)
+                            }
+                        },
+                        error: (jqXHR, statusText, errorMsg) => {
+                            ajaxError(jqXHR, statusText, errorMsg)
+
+                        },
+                        complete: (jqXHR, statusText) => {
+                            this.isExecuting = false
+                        }
+
+                    })
+                },
+                saveModel: function (isCloseDialog) {
+                    this.ajaxPostData(this.model, (rsp) => {
+                        if (rsp.code == 0) {
+                            this.model = rsp.data
+                            refreshParentTable()
+                            if (isCloseDialog) closeSelfDialog()
+                        }
+                    })
+                },
+                saveModelAddOther: function () {
+                    this.ajaxPostData(this.model, (rsp) => {
+                        if (rsp.code == 0) {
+                            window.location.href = window.location.pathname
+                        }
+                    })
+                },
+
+            },
+            mounted: function () {
+
+
+            }
+        })
+
+
+    </script>
+{% endblock %}

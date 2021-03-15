@@ -1,0 +1,213 @@
+{% extends "framework/base.html" %}
+
+{% block header %}
+    <title>{{ _('项目 编辑') }}</title>
+{% endblock %}
+
+
+{% block content %}
+    <div id="vue-container" v-cloak>
+        <div class="row header">
+            <div class="col-sm-5">
+                <h1>{{ _('项目') }}
+                    <small>{{ _('编辑') }}</small>
+                </h1>
+            </div>
+        </div>
+
+        <hr>
+        <br>
+
+        <form class="form-horizontal"
+              role="form">
+            <div class="row edit-form-container">
+                <div class="col-sm-12">
+                
+
+
+        <div class="form-group" style="display:none">
+            <label class="col-sm-3 control-label no-padding-right" for="id_id">
+                
+                {{ _('id') }} </label>
+
+            <div class="col-sm-8">
+                 <input type="number" id="id_id" name="id" v-model="model.id"
+                        class="form-control" value="{{ data.id or ""}}"
+                        
+                         >
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_name">
+                <span class="text-danger">*</span>
+                {{ _('项目名') }} </label>
+
+            <div class="col-sm-8">
+                <input type="text" id="id_name" name="name" v-model="model.name"
+                        class="form-control" value="{{ data.name or ""}}"
+                        maxlength=100
+                        required=true >
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_alias">
+                
+                {{ _('别名') }} </label>
+
+            <div class="col-sm-8">
+                <input type="text" id="id_alias" name="alias" v-model="model.alias"
+                        class="form-control" value="{{ data.alias or ""}}"
+                        maxlength=100
+                         >
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_appkey">
+                
+                {{ _('秘钥') }} </label>
+
+            <div class="col-sm-8">
+                <input type="text" id="id_appkey" name="appkey" v-model="model.appkey"
+                        class="form-control" value="{{ data.appkey or ""}}"
+                        maxlength=100
+                         >
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_create_datetime">
+                
+                {{ _('创建时间') }} </label>
+
+            <div class="col-sm-8">
+                    <input type="text" id="id_create_datetime" name="create_datetime" v-model="model.create_datetime"
+                           class="form-control datetime " value="{{ data.create_datetime  or "" }}"
+                            >
+            </div>
+        </div>
+                
+
+
+        <div class="form-group" style="">
+            <label class="col-sm-3 control-label no-padding-right" for="id_update_datetime">
+                
+                {{ _('更新时间') }} </label>
+
+            <div class="col-sm-8">
+                    <input type="text" id="id_update_datetime" name="update_datetime" v-model="model.update_datetime"
+                           class="form-control datetime " value="{{ data.update_datetime  or "" }}"
+                            >
+            </div>
+        </div>
+                </div>
+            </div>
+
+
+            <div class="row pane edit-save-bar">
+                <div class="col-sm-offset-3 col-sm-3">
+                    <input id="reset-btn" class="btn btn-default" type="reset" value="{{ _('重 置') }}">
+                    <button @click="saveModel(true)" :disabled="isExecuting" class="btn btn-primary " type="button">
+                        {{ _('保 存') }}
+                    </button>
+                </div>
+                <div class="col-sm-6">
+                    <div class="pull-right">
+                        <button @click="saveModel(false)" :disabled="isExecuting" class="btn btn-info " type="button">
+                            {{ _('保存并继续编辑') }}
+                        </button>
+                        <button @click="saveModelAddOther" :disabled="isExecuting" class="btn btn-info " type="button">
+                            {{ _('保存并增加另一个') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+
+        </form>
+    </div>
+    <script>
+        var modelData =
+        {{ data|json_dumps|safe }}
+        var modelShema =
+        {{ data.serializer.to_schema()|json_dumps|safe }}
+
+
+        var vue_app = new Vue({
+            el: '#vue-container',
+            delimiters: ['((', '))'],
+            data() {
+                return {
+                    model: modelData,
+                    isExecuting: false,
+                };
+            },
+            watch: {},
+            methods: {
+                ajaxPostData: function (post_data, callback) {
+                    clearHelpText()
+                    this.isExecuting = true
+                    $.ajax({
+                        async: true,
+                        type: "POST",
+                        url: "{{ url('flink_platform.project.save') }}?{% if data.id %}id={{ data.id }}{% endif %}{% if request.query_params.is_copy %}&is_copy=1{% endif %}",
+                        dataType: 'json',
+                        data: JSON.stringify(post_data),
+                        contentType: 'application/json',
+                        success: (rsp) => {
+                            if (rsp.code == 0) {
+                                this.$message.success(rsp.msg, 1)
+                                clearHelpText()
+                                callback ? callback(rsp) : null
+
+                            } else {
+                                rsp.data ? addHelpText(rsp.data) : alertMsg(rsp.msg)
+                            }
+                        },
+                        error: (jqXHR, statusText, errorMsg) => {
+                            ajaxError(jqXHR, statusText, errorMsg)
+
+                        },
+                        complete: (jqXHR, statusText) => {
+                            this.isExecuting = false
+                        }
+
+                    })
+                },
+                saveModel: function (isCloseDialog) {
+                    this.ajaxPostData(this.model, (rsp) => {
+                        if (rsp.code == 0) {
+                            this.model = rsp.data
+                            refreshParentTable()
+                            if (isCloseDialog) closeSelfDialog()
+                        }
+                    })
+                },
+                saveModelAddOther: function () {
+                    this.ajaxPostData(this.model, (rsp) => {
+                        if (rsp.code == 0) {
+                            window.location.href = window.location.pathname
+                        }
+                    })
+                },
+
+            },
+            mounted: function () {
+
+
+            }
+        })
+
+
+    </script>
+{% endblock %}

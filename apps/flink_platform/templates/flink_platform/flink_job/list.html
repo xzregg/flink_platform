@@ -1,0 +1,700 @@
+{% extends "framework/base.html" %}
+
+{% block header %}
+    <title>{{ _('FlinkJob 列表') }}</title>
+{% endblock %}
+
+
+{% block content %}
+    <div class="row header">
+        <div class="col-sm-5">
+            <h1>{{ _('FlinkJob') }}
+                <small>{{ _('列表') }}</small>
+            </h1>
+        </div>
+    </div>
+
+
+    <div class="row ">
+        <div class="col-sm-12">
+            <form id="filter-form" class="form-inline pane">
+                <input style="display:none" type="text">
+
+
+                <script>
+                    // 过滤条件字段定义
+                    var filter_field_schemas = {
+                        id:
+                            {
+                                label: '{{ _('id') }}',
+                                name: 'id',
+                                type: 'number',
+                                data_url: '',
+                            },
+                        project:
+                            {
+                                label: '{{ _('所属项目') }}',
+                                name: 'project',
+                                type: 'choice',
+                                data_url: '/flink_platform/project/list',
+                            },
+                        author:
+                            {
+                                label: '{{ _('作者') }}',
+                                name: 'author',
+                                type: 'choice',
+                                data_url: '',
+                            },
+                        name:
+                            {
+                                label: '{{ _('任务名') }}',
+                                name: 'name',
+                                type: 'char',
+                                data_url: '',
+                            },
+                        alias:
+                            {
+                                label: '{{ _('任务简称') }}',
+                                name: 'alias',
+                                type: 'char',
+                                data_url: '',
+                            },
+                        status:
+                            {
+                                label: '{{ _('任务状态') }}',
+                                name: 'status',
+                                type: 'choice',
+                                data_url: '',
+                                choices: [{% for o in request.parser_context.view.model.fields_map.status.choices %}
+                                    ["{{ o.0 }}", '{{ o.1 }}'],{% endfor %}
+                                ]
+                            },
+                        job_id:
+                            {
+                                label: '{{ _('任务ID') }}',
+                                name: 'job_id',
+                                type: 'char',
+                                data_url: '',
+                            },
+                        flink_job_id:
+                            {
+                                label: '{{ _('Flink Job ID') }}',
+                                name: 'flink_job_id',
+                                type: 'char',
+                                data_url: '',
+                            },
+                        mode:
+                            {
+                                label: '{{ _('任务模式') }}',
+                                name: 'mode',
+                                type: 'choice',
+                                data_url: '',
+                                choices: [{% for o in request.parser_context.view.model.fields_map.mode.choices %}
+                                    ["{{ o.0 }}", '{{ o.1 }}'],{% endfor %}
+                                ]
+                            },
+                        cron:
+                            {
+                                label: '{{ _('cron 定时执行') }}',
+                                name: 'cron',
+                                type: 'char',
+                                data_url: '',
+                            },
+                        start_datetime:
+                            {
+                                label: '{{ _('任务开始执行时间') }}',
+                                name: 'start_datetime',
+                                type: 'date',
+                                data_url: '',
+                            },
+                        stop_datetime:
+                            {
+                                label: '{{ _('任务停止执行时间') }}',
+                                name: 'stop_datetime',
+                                type: 'date',
+                                data_url: '',
+                            },
+
+                        code_paragraphs:
+                            {
+                                label: '{{ _('引用代码段落') }}',
+                                name: 'code_paragraphs',
+                                type: 'choice',
+                                data_url: '',
+                            },
+                        task_code_type:
+                            {
+                                label: '{{ _('任务 类型') }}',
+                                name: 'task_code_type',
+                                type: 'choice',
+                                data_url: '',
+                                choices: [
+                                    {% for o in request.parser_context.view.model.fields_map.task_code_type.choices %}
+                                        ["{{ o.0 }}", '{{ o.1 }}'],{% endfor %}
+                                ]
+                            },
+
+                        last_execution_savepoint:
+                            {
+                                label: '{{ _('最后 lastsavepoint 路径') }}',
+                                name: 'last_execution_savepoint',
+                                type: 'char',
+                                data_url: '',
+                            },
+                        create_datetime:
+                            {
+                                label: '{{ _('创建时间') }}',
+                                name: 'create_datetime',
+                                type: 'date',
+                                data_url: '',
+                            },
+                        update_datetime:
+                            {
+                                label: '{{ _('更新时间') }}',
+                                name: 'update_datetime',
+                                type: 'date',
+                                data_url: '',
+                            },
+                    }
+
+                    // 默认过滤条件
+                    var filter_conditions = [{
+                        name: 'id',
+                        operator: "exact",
+                        value: "",
+                        type: "number",
+                        label: '{{ _('ID') }}',
+                        choices: [],
+                        is_default: true
+                    }, {
+                        name: 'project',
+                    }]
+                </script>
+                {% include "framework/widgets/filter.html" %}
+            </form>
+
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-sm-12">
+            <div id="vue-container" v-cloak>
+                <div id="toolbar" class="">
+                    <a id="add-btn" class="btn btn-sm btn-primary openDialog"
+                       href="{{ url('flink_platform.flink_job.edit') }}">
+                        <span class="glyphicon glyphicon-plus-sign"></span> {{ _('添加') }}
+                    </a>
+                    <button @click.prevent="onDelete" :disabled="selectIds.length==0" class="btn btn-sm btn-danger ">
+                        <span class="glyphicon glyphicon-remove"></span> {{ _('删除') }} <span v-show="selectIds.length>0"
+                                                                                             class="badge">((selectIds.length))</span>
+                    </button>
+
+                    <div class="btn-group">
+                        <button type="button"
+                                class="btn btn-sm btn-default dropdown-toggle"
+                                data-toggle="dropdown"
+                                aria-haspopup="true"
+                                aria-expanded="false">
+                            {{ _('任务操作') }} <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a @click="start_job()" href="#"> {{ _('启 动') }}</a></li>
+                            <li><a @click="stop_job(false)" href="#"> {{ _('停 止') }}</a></li>
+                            <li><a @click="restart_job(false)" href="#"> {{ _('重 启') }}</a></li>
+                            <li role="separator" class="divider"></li>
+                            <li><a @click="stop_job(true)" href="#"> {{ _('强制停止') }}</a></li>
+                            <li><a @click="restart_job(true)" href="#"> {{ _('强制重启') }}</a></li>
+                        </ul>
+                    </div>
+
+                    <button @click="refresh_status_info" class="btn btn-sm btn-default">
+                        <i class="glyphicon glyphicon-refresh icon-refresh"></i>
+                    </button>
+
+
+                    <label class="checkbox-inline"><input id="auto-refresh-status-checkbox"
+                                                          type="checkbox">{{ _('自动刷新状态') }}</label>
+
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="table" class="table "></table>
+            </div>
+        </div>
+    </div>
+
+    {% include 'flink_platform/widgets/flink_job_status_info.html' %}
+
+    <script type="text/javascript" src="/celery_task_result/js"></script>
+
+    <script>
+
+        var $table = $('#table')
+        var bootstrapTableOption = {
+            height: Math.max(400, getWindowHeightWidth()[1] - Math.min($('html').height(), $table.offset().top) - 20),
+            url: window.location.pathname,  //请求后台的URL（*）
+
+            toolbar: '#toolbar',
+            method: "GET", //请求方式（*）
+            dataType: "json",
+            striped: true, //是否显示行间隔色
+            cache: false,  //是否使用缓存，默认为true，所以一般情况下需要设置一下这个属性（*）
+            sortable: true,  //是否启用排序
+            sortOrder: "asc", //排序方式
+            resizable: true,
+            queryParams: function (params) {
+                var paramsArray = $('#filter-form').serializeArray()
+                paramsArray.push({name: 'page_size', value: params.pageSize || 10000})
+                paramsArray.push({name: 'page', value: params.pageNumber || 1})
+                paramsArray.push({name: 'keywords', value: params.searchText})
+                var orderPrefix = params.sortOrder == 'asc' ? '' : '-'
+                paramsArray.push({name: 'ordering', value: orderPrefix + (params.sortName || '')})
+                return paramsArray;
+
+            },//传递参数（*）
+            showExport: true,
+            totalField: 'count',
+            dataField: 'results',
+            showJumpTo: "true",
+            responseHandler: function (res) {
+                if (res.code !== 0) {
+                    alertMsg(res.msg)
+                }
+                return res.data
+            },
+            onLoadError: function (status, jqXHR) {
+                ajaxError(jqXHR, status)
+            },
+            pagination: true, //是否显示分页（*）
+            sidePagination: "client", //分页方式：client 客户端分页，server 服务端分页（*）
+            queryParamsType: "",      //https://examples.bootstrap-table.com/index.html?bootstrap3#options/query-params-type.html
+            pageNumber: 1, //初始化加载第一页，默认第一页
+            pageSize: 100, //每页的记录行数（*）
+            pageList: [100, 200, 600, 2400], //可供选择的每页的行数（*）
+            search: false, //是否显示表格搜索，如指定搜索customSearch是客户端搜索，sidePagination: "server"进服务端
+            showSearchClearButton: true,
+            strictSearch: false, //严格查询
+            showFullscreen: false,
+            showColumnsToggleAll: true,
+            showColumns: true, //是否显示所有的列
+            showRefresh: true, //是否显示刷新按钮
+            minimumCountColumns: 2, //最少允许的列数
+            clickToSelect: false, //是否启用点击选中行
+            multipleSelectRow: true,//按shift 多选
+            showToggle: true, //是否显示详细视图和列表视图的切换按钮
+            cardView: false,   //是否显示详细视图
+            detailView: false,//显示详情
+            detailViewByClick: false,
+            detailViewIcon: false,
+            detailFormatter: function detailFormatter(index, row) {
+                var html = []
+                var allow_keys = ['flink_job_id', 'flink_job_url', 'last_execution_savepoint', 'execution_savepoint_path']
+                $.each(row, function (key, value) {
+                    if (allow_keys.indexOf(key) >= 0) {
+                        html.push('<p><b>' + key + ':</b> ' + value + '</p>')
+                    }
+                })
+                return html.join('')
+            },
+            fixedColumns: true,
+            fixedNumber: 1,
+            fixedRightNumber: 1,
+            groupBy: true,//分组 注意 sidePagination 不能为 "server"
+            groupByField: 'project_alias',
+            groupByShowToggleIcon: true,
+            groupByFormatter: function (value, idx, data) {
+                return '<span class="label label-info">' + value + '</span>'
+            },
+            uniqueId: 'id',
+            onDblClickRow1: function (row, $element, field) {
+                $element.treegrid('toggle');
+            },
+            // 表格树设置 https://bootstrap-table.com/docs/extensions/treegrid/#example
+            idField: 'id',
+            treeEnable: false,
+            treeShowField: 'alias',
+            parentIdField: 'parent_id',
+            onPostBody: function (data) {
+
+                $('[data-toggle="tooltip"]').tooltip()
+                $('[data-toggle="popover"]').popover()
+            },
+            // -- end
+            columns: [{
+                checkbox: true,
+                align: 'center',
+                valign: 'middle',
+                formatter: function (value, row, index) {
+                    if (row.executing) {
+                        return {
+                            disabled: true,
+                            checked: false
+                        }
+                    }
+                    return value;
+                }
+            },
+                {
+                    field: 'id',
+                    title: "{{ _('id') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'project_alias',
+                    title: "{{ _('所属项目') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'author_alias',
+                    title: "{{ _('作者') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'name',
+                    title: "{{ _('任务名') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'alias',
+                    title: "{{ _('任务简称') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'status',
+                    title: "{{ _('任务状态') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                    formatter: function (value, row, index) {
+                        var status_html = '<a onclick="showStatusInfo(this,' + row.id + ')" data-toggle="tooltip" data-title="{{ _('点击查看其他任务状态') }}"   class=" label label-' + status_label_map[row.status] + '">' + row.status_alias + '</a>'
+                        return status_html
+                    }
+                },
+                {
+                    field: 'flink_job_url',
+                    title: "{{ _('Flink Job 信息') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                    formatter: function (value, row, index) {
+                        var status_html = ''
+                        if (row.flink_job_id && row.flink_job_id != '') {
+                            var title = 'id: ' + row.flink_job_id
+                            status_html = '<a href="' + row.flink_job_url + '" data-toggle="tooltip" data-title="' + title + '"  target="_blank">{{ _('FLINK JOB 地址') }}</a>'
+                        }
+                        return status_html
+                    }
+                },
+                {
+                    field: 'mode',
+                    title: "{{ _('任务模式') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                    formatter: function (value, row, index) {
+                        return row.mode_alias.toString()
+                    }
+                },
+                {
+                    field: 'cron',
+                    title: "{{ _('cron 定时执行') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: false,
+                },
+                {
+                    field: 'start_datetime',
+                    title: "{{ _('任务开始执行时间') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'stop_datetime',
+                    title: "{{ _('任务停止执行时间') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+
+                {
+                    field: 'task_code_type',
+                    title: "{{ _('任务 类型') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                    formatter: function (value, row, index) {
+                        return row.task_code_type_alias.toString()
+                    }
+                },
+
+                {
+                    field: 'last_execution_savepoint',
+                    title: "{{ _('最后 lastsavepoint 路径') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: false,
+                },
+                {
+                    field: 'create_datetime',
+                    title: "{{ _('创建时间') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: false,
+                },
+                {
+                    field: 'update_datetime',
+                    title: "{{ _('更新时间') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'operation_status',
+                    title: "{{ _('操作状态') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: false,
+                    visible: true,
+                    formatter: function (value, row, index) {
+                        return row.operation_status
+                    }
+                },
+                {
+                    field: '_operate',
+                    title: '{{ _('操作') }}',
+                    align: 'center',
+                    valign: 'middle',
+                    formatter: function (value, row, index) {
+                        return [
+                            '<a href="{{ url('flink_platform.flink_job.edit') }}?id=' + row.id + '" class="btn btn-xs btn-info openDialog" >{{ _('编辑') }}</a> ',
+                            '<a href="{{ url('flink_platform.flink_job.edit') }}?id=' + row.id + '&is_copy=1" class="btn btn-default btn-xs openDialog" >{{ _('复制') }}</a> ',
+                        ].join('');
+                    },
+                },
+            ]
+        }
+
+        // 刷新表格
+        function refreshTable() {
+            $table.bootstrapTable('refresh', {})
+        }
+
+        window.addEventListener("refreshTable", (e) => {
+            refreshTable()
+        })
+        window.addEventListener("filterCondition", (e) => {
+            refreshTable()
+            console.dir(e.detail)
+        })
+
+        // 显示单个任务状态
+        function showStatusInfo(ele, id) {
+            $.getJSON("{{ url('flink_platform.flink_job.status_info') }}", {
+                id: id,
+            }, function (rsp) {
+                if (rsp.code == 0) {
+                    var model_data = rsp.data
+                    var other_status_info_text = getStatusInfoHtml(model_data)
+                    $table.bootstrapTable('updateByUniqueId', {
+                        id: model_data.id,
+                        row: model_data
+                    })
+                    art.dialog({
+                        id: 'status_info_dialog_' + id,
+                    }).content(other_status_info_text).follow(ele);
+                }
+            })
+
+        }
+
+        // 刷新状态信息
+        function refreshAllStatusInfo(ids) {
+            var ids = ids || $.map($table.bootstrapTable('getData'), function (row) {
+                return row.id
+            })
+            $.get("{{ url('flink_platform.flink_job.list') }}", {
+                id__in: ids,
+                //  fields: 'id,status_info,status,status_alias,update_datetime,flink_job_url,flink_job_id,last_execution_savepoint,start_datetime,stop_datetime'
+            }, function (rsp) {
+                if (rsp.code == 0) {
+                    for (i in rsp.data.results) {
+                        var row = rsp.data.results[i]
+                        $table.bootstrapTable('updateByUniqueId', {
+                            id: row.id,
+                            row: row
+                        })
+                    }
+                }
+            }, 'json')
+
+        }
+
+
+        setInterval(function () {
+            if ($('#auto-refresh-status-checkbox').is(':checked')) {
+                refreshAllStatusInfo()
+            }
+        }, 3000)
+
+
+        var vue_app = new Vue({
+            el: '#vue-container',
+            delimiters: ['((', '))'],
+            data() {
+                return {
+                    table: $table,
+                    selectIds: [],
+                    celeryTaskResult: new CelertTasKResult('operation_status', $table),
+                    executedActions: []
+                };
+            },
+            computed: {},
+            methods: {
+                getSelectIds: function () {
+                    this.selectIds = $.map($table.bootstrapTable('getSelections'), function (row) {
+                        return row.id
+                    })
+                    return this.selectIds
+                },
+                onExpandAll: function () {
+                    $table.treegrid('expandAll');
+                },
+                onCollapseAll: function () {
+                    $table.treegrid('collapseAll');
+                },
+                onDelete: function () {
+                    if (!confirmRandom('确认删除吗?')) {
+                        return false
+                    }
+                    var ids = this.getSelectIds()
+                    $.post("{{ url('flink_platform.flink_job.delete') }}", {id: ids}, (rsp) => {
+                        if (rsp.code == 0) {
+                            $table.bootstrapTable('remove', {
+                                field: 'id',
+                                values: ids
+                            })
+
+                            art.dialog(rsp.msg).time(1)
+                        } else {
+                            art.dialog.alert(rsp.msg)
+                        }
+                    }, 'json')
+                },
+
+                // 停止执行的操作
+                revokeExecuteActions: function () {
+                    this.celeryTaskResult.revokeExecuteTask(this.executedActions, null, (rsp) => {
+                        setTimeout(this.queryProgressAction, 3000)
+                    })
+
+                },
+                celeryTaskResultHandle: function (row_id, task_result, is_all_done) {
+                    setTimeout(refreshAllStatusInfo([row_id]), 2000)
+                    if (is_all_done) {
+                        this.$message.success(task_result.status, 1)
+                    }
+                },
+                // 查询正在进行的操作任务
+                queryProgressAction: function () {
+                    var a_ids = $.map($table.bootstrapTable('getData'), function (row) {
+                        return row.id
+                    })
+                    if (a_ids.length == 0) return
+                    this.celeryTaskResult.queryProgressTask(a_ids, null, (rsp) => {
+                        var idmap = {}
+                        var progress_task_result = rsp.data
+                        this.executedActions = progress_task_result
+                        if (progress_task_result.length <= 0) {
+                            return
+                        }
+                        for (var i in progress_task_result) {
+                            idmap[progress_task_result[i].a_id] = progress_task_result[i].task_result_id[0]
+
+                        }
+                        this.isExecuting = true
+
+                        this.celeryTaskResult.queryTaskResult(idmap, this.celeryTaskResultHandle)
+                    })
+
+                },
+                execute_action: function (url, postData) {
+                    var ids = this.getSelectIds()
+
+                    var postData = Object.assign({id: ids}, postData)
+                    $.post(url, postData, (rsp) => {
+                        if (rsp.code == 0) {
+                            $table.bootstrapTable('uncheckBy', {field: 'id', values: ids})
+                            this.celeryTaskResult.queryTaskResult(rsp.data.idmap, this.celeryTaskResultHandle)
+                            //setTimeout(this.queryProgressAction, 3000)
+                            this.$message.success(rsp.msg, 1)
+                        } else {
+                            art.dialog.alert(rsp.msg)
+                        }
+                    }, 'json')
+                },
+                start_job: function () {
+                    if (!confirmRandom('{{  _('确定启动所选任务?') }}')) {
+                        return
+                    }
+                    this.execute_action("{{ url('flink_platform.flink_job.start') }}", {use_last_savepoint: true})
+                },
+                stop_job: function (is_force) {
+                    console.dir(is_force)
+                    if (!confirmRandom('{{  _('确定停止所选任务?') }}')) {
+                        return
+                    }
+                    this.execute_action("{{ url('flink_platform.flink_job.stop') }}", {force: is_force})
+                },
+                restart_job: function (is_force) {
+                    if (!confirmRandom('{{  _('确定重启所选任务?') }}')) {
+                        return
+                    }
+                    this.execute_action("{{ url('flink_platform.flink_job.restart') }}", {force: is_force})
+                },
+                refresh_status_info: function () {
+                    refreshAllStatusInfo()
+                }
+            },
+            mounted: function () {
+                $table.bootstrapTable('destroy').bootstrapTable(bootstrapTableOption)
+                $table.on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', () => {
+                    this.getSelectIds()
+                })
+                $table.on('load-success.bs.table', () => {
+                    this.queryProgressAction()
+                })
+
+                //this.queryProgressAction()
+
+            }
+        })
+
+
+    </script>
+{% endblock %}

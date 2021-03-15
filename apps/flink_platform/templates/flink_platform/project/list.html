@@ -1,0 +1,358 @@
+{% extends "framework/base.html" %}
+
+{% block header %}
+    <title>{{ _('项目 列表') }}</title>
+{% endblock %}
+
+
+{% block content %}
+    <div class="row header">
+        <div class="col-sm-5">
+            <h1>{{ _('项目') }}
+                <small>{{ _('列表') }}</small>
+            </h1>
+        </div>
+    </div>
+
+    <form id="filter-form" class="form-inline">
+        <div class="row ">
+            <div class="col-sm-12">
+
+                <div class="pane">
+                    <input style="display:none" type="text">
+
+
+                    <script>
+                        // 过滤条件字段定义
+                        var filter_field_schemas = {
+                            id:
+                                {
+                                    label: '{{ _('id') }}',
+                                    name: 'id',
+                                    type: 'number',
+                                    data_url: '',
+                                },
+                            name:
+                                {
+                                    label: '{{ _('项目名') }}',
+                                    name: 'name',
+                                    type: 'char',
+                                    data_url: '',
+                                },
+                            alias:
+                                {
+                                    label: '{{ _('别名') }}',
+                                    name: 'alias',
+                                    type: 'char',
+                                    data_url: '',
+                                },
+                            appkey:
+                                {
+                                    label: '{{ _('秘钥') }}',
+                                    name: 'appkey',
+                                    type: 'char',
+                                    data_url: '',
+                                },
+                            create_datetime:
+                                {
+                                    label: '{{ _('创建时间') }}',
+                                    name: 'create_datetime',
+                                    type: 'date',
+                                    data_url: '',
+                                },
+                            update_datetime:
+                                {
+                                    label: '{{ _('更新时间') }}',
+                                    name: 'update_datetime',
+                                    type: 'date',
+                                    data_url: '',
+                                },
+                        }
+
+                        // 默认过滤条件
+                        var filter_conditions = [{
+                            name: 'id',
+                            operator: "exact",
+                            value: "",
+                            type: "number",
+                            label: '{{ _('ID') }}',
+                            choices: [],
+                            is_default: true
+                        }]
+                    </script>
+                    {% include "framework/widgets/filter.html" %}
+                </div>
+
+
+            </div>
+
+        </div>
+
+        <div class="row">
+            <div class="col-sm-12 ">
+                <div id="vue-container" v-cloak>
+                    <div id="toolbar" class="">
+                        <a id="add-btn" class="btn btn-sm btn-primary openDialog"
+                           href="{{ url('flink_platform.project.edit') }}">
+                            <span class="glyphicon glyphicon-plus-sign"></span> {{ _('添加') }}
+                        </a>
+                        <button @click.prevent="onDelete" :disabled="selectIds.length==0" class="btn btn-sm btn-danger ">
+                            <span class="glyphicon glyphicon-remove"></span> {{ _('删除') }}
+                            <span v-show="selectIds.length>0"
+                                  class="badge">((selectIds.length))</span>
+                        </button>
+                        <!--button id="expandAll-btn" class="btn btn-sm btn-default ">
+                        {{ _('展开') }}
+                </button-->
+                        <!--button id="collapseAll-btn" class="btn btn-sm btn-default ">
+                        {{ _('收缩') }}
+                </button-->
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table id="table" class="table"></table>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script>
+
+        var $table = $('#table')
+        var bootstrapTableOption = {
+            height: Math.max(400, getWindowHeightWidth()[1] - Math.min($('html').height(), $table.offset().top) - 20),
+            url: window.location.pathname,  //请求后台的URL（*）
+            locale: BootstrapTableLocale,
+            toolbar: '#toolbar',
+            method: "GET", //请求方式（*）
+            dataType: "json",
+            striped: true, //是否显示行间隔色
+            cache: false,  //是否使用缓存，默认为true，所以一般情况下需要设置一下这个属性（*）
+            sortable: true,  //是否启用排序
+            sortOrder: "asc", //排序方式
+            resizable: true,
+            queryParams: function (params) {
+                var paramsArray = $('#filter-form').serializeArray()
+                paramsArray.push({name: 'page_size', value: params.pageSize || 10000})
+                paramsArray.push({name: 'page', value: params.pageNumber || 1})
+                paramsArray.push({name: 'keywords', value: params.searchText})
+                var orderPrefix = params.sortOrder == 'asc' ? '' : '-'
+                paramsArray.push({name: 'ordering', value: orderPrefix + (params.sortName || '')})
+                return paramsArray;
+
+            },//传递参数（*）
+            showExport: true,
+            totalField: 'count',
+            dataField: 'results',
+            showJumpTo: "true",
+            responseHandler: function (res) {
+                if (res.code !== 0) {
+                    alertMsg(res.msg)
+                }
+                return res.data
+            },
+            onLoadError: function (status, jqXHR) {
+
+                ajaxError(jqXHR, status)
+
+
+            },
+            pagination: true, //是否显示分页（*）
+            sidePagination: "server", //分页方式：client 客户端分页，server 服务端分页（*）
+            queryParamsType: "",      //https://examples.bootstrap-table.com/index.html?bootstrap3#options/query-params-type.html
+            pageNumber: 1, //初始化加载第一页，默认第一页
+            pageSize: 100, //每页的记录行数（*）
+            pageList: [100, 200, 600, 2400], //可供选择的每页的行数（*）
+            search: false, //是否显示表格搜索，如指定搜索customSearch是客户端搜索，sidePagination: "server"进服务端
+            showSearchClearButton: true,
+            strictSearch: false, //严格查询
+            showFullscreen: false,
+            showColumnsToggleAll: true,
+            showColumns: true, //是否显示所有的列
+            showRefresh: true, //是否显示刷新按钮
+            minimumCountColumns: 2, //最少允许的列数
+            clickToSelect: true, //是否启用点击选中行
+            multipleSelectRow: true,//按shift 多选
+            showToggle: false, //是否显示详细视图和列表视图的切换按钮
+            cardView: false,   //是否显示详细视图
+            detailView: false,//显示详情
+            detailFormatter: function detailFormatter(index, row) {
+                var html = []
+                $.each(row, function (key, value) {
+                    html.push('<p><b>' + key + ':</b> ' + value + '</p>')
+                })
+                return html.join('')
+            },
+            fixedColumns: true,
+            fixedNumber: 1,
+            fixedRightNumber: 1,
+            groupBy: false,//分组 注意 sidePagination 不能为 "server"
+            groupByField: 'type',
+            groupByShowToggleIcon: true,
+            groupByFormatter: function (value, idx, data) {
+                return '<span class="label label-info">' + value + '</span>'
+            },
+            uniqueId: 'id',
+            onDblClickRow1: function (row, $element, field) {
+                $element.treegrid('toggle');
+            },
+            // 表格树设置 https://bootstrap-table.com/docs/extensions/treegrid/#example
+            idField: 'id',
+            treeEnable: false,
+            treeShowField: 'alias',
+            parentIdField: 'parent_id',
+            onPostBody: function (data) {
+                var columns = $table.bootstrapTable('getOptions').columns
+                if (columns && columns[0][1].visible) {
+                    // http://maxazan.github.io/jquery-treegrid
+                    $table.treegrid({
+                        initialState: 'collapsed',//'expanded'
+                        treeColumn: 2,
+                        onChange: function () {
+                            $table.bootstrapTable('resetWidth')
+                        }
+                    })
+                    //$table.treegrid('getRootNodes').treegrid('expand');
+                }
+
+                $('[data-toggle="tooltip"]').tooltip()
+                $('[data-toggle="popover"]').popover()
+            },
+            // -- end
+            columns: [{
+                checkbox: true,
+                align: 'center',
+                valign: 'middle'
+            },
+                {
+                    field: 'id',
+                    title: "{{ _('id') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'name',
+                    title: "{{ _('项目名') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'alias',
+                    title: "{{ _('别名') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'appkey',
+                    title: "{{ _('秘钥') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'create_datetime',
+                    title: "{{ _('创建时间') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: 'update_datetime',
+                    title: "{{ _('更新时间') }}",
+                    align: 'center',
+                    valign: 'middle',
+                    sortable: true,
+                    visible: true,
+                },
+                {
+                    field: '_operate',
+                    title: '{{ _('操作') }}',
+                    align: 'center',
+                    valign: 'middle',
+                    formatter: function (value, row, index) {
+                        return [
+                            '<a href="{{ url('flink_platform.project.edit') }}?id=' + row.id + '" class="btn btn-xs btn-info openDialog">{{ _('编辑') }}</a> ',
+                            '<a href="{{ url('flink_platform.project.edit') }}?id=' + row.id + '&is_copy=1" class="btn btn-default btn-xs openDialog">{{ _('复制') }}</a> ',
+                        ].join('');
+                    },
+                },
+            ]
+        }
+
+
+        // 刷新表格
+        function refreshTable() {
+            $table.bootstrapTable('refresh', {})
+        }
+
+        window.addEventListener("refreshTable", (e) => {
+            refreshTable()
+        })
+        window.addEventListener("filterCondition", (e) => {
+            refreshTable()
+            console.dir(e.detail)
+        })
+
+        var vue_app = new Vue({
+            el: '#vue-container',
+            delimiters: ['((', '))'],
+            data() {
+                return {
+                    table: $table,
+                    selectIds: [],
+                };
+            },
+            computed: {},
+            methods: {
+                getSelectIds: function () {
+                    this.selectIds = $.map($table.bootstrapTable('getSelections'), function (row) {
+                        return row.id
+                    })
+                    return this.selectIds
+                },
+                onExpandAll: function () {
+                    $table.treegrid('expandAll');
+                },
+                onCollapseAll: function () {
+                    $table.treegrid('collapseAll');
+                },
+                onDelete: function () {
+                    if (!confirmRandom('确认删除吗?')) {
+                        return false
+                    }
+                    var ids = this.getSelectIds()
+                    $.post("{{ url('flink_platform.project.delete') }}", {id: ids}, (rsp) => {
+                        if (rsp.code == 0) {
+                            this.table.bootstrapTable('remove', {
+                                field: 'id',
+                                values: ids
+                            })
+
+                            art.dialog(rsp.msg).time(1)
+                        } else {
+                            art.dialog.alert(rsp.msg)
+                        }
+                    }, 'json')
+                }
+
+            },
+            mounted: function () {
+                $table.bootstrapTable('destroy').bootstrapTable(bootstrapTableOption)
+                $table.on('check.bs.table uncheck.bs.table check-all.bs.table uncheck-all.bs.table', () => {
+                    this.getSelectIds()
+                })
+
+            }
+
+        })
+
+    </script>
+{% endblock %}

@@ -1,0 +1,368 @@
+{% extends "framework/base.html" %}
+
+{% block header %}
+    <title>{{ _('Flink 代码段 编辑') }}</title>
+{% endblock %}
+
+
+{% block content %}
+    <div id="vue-container" v-cloak>
+        <div class="row header">
+            <div class="col-sm-5">
+                <h1>{{ _('Flink 代码段') }}
+                    <small>{{ _('编辑') }}</small>
+                </h1>
+            </div>
+        </div>
+
+        <hr>
+        <br>
+
+        <form action="{{ url('flink_platform.code_paragraph.save') }}?{% if data.id %}id={{ data.id }}{% endif %}{% if request.query_params.is_copy %}&is_copy=1{% endif %}"
+              method="POST"
+              class="form-horizontal"
+              role="form">
+            <div id="edit-container">
+                <a-spin :spinning="isExecuting"/>
+                <div class="row edit-form-container">
+                    <div class="col-sm-12">
+                        {{ csrf_input }}
+
+
+                        <div class="form-group" style="display:none">
+                            <label class="col-sm-3 control-label no-padding-right" for="id_id">
+                                {{ _('id') }} </label>
+                            <div class="col-sm-8">
+                                <input type="number" id="id_id" v-model="model.id"
+                                       class="form-control"
+                                >
+
+                            </div>
+                        </div>
+                        <div class="form-group" style="">
+                            <label class="col-sm-3 control-label no-padding-right" for="id_project">
+
+                                {{ _('所属项目') }} </label>
+
+                            <div class="col-sm-8">
+                                <select v-select2
+                                        v-model="model.project"
+                                        class="form-control select2"
+                                        id="id_project"
+                                        data-placeholder="{{ _('根') }}"
+                                        name="project"
+                                        data-url="{{ url('flink_platform.project.list') }}?">
+                                    <option value="{{ data.project or '' }}">{{ data.project or _('无') }} </option>
+                                </select>
+                                <div id="help_text_project" class="middle text-danger help_text"></div>
+                            </div>
+                        </div>
+                        <div class="form-group" style="">
+                            <label class="col-sm-3 control-label no-padding-right" for="id_name">
+                                <span class="text-danger">*</span>
+                                {{ _('段落名') }} </label>
+
+                            <div class="col-sm-2">
+                                <input type="text" id="id_name" name="name" v-model="model.name"
+                                       class="form-control"
+                                       maxlength=100
+                                       required=true @change="genrateGroup">
+                                <span class="help-block">{{ data.serializer.Meta.model.fields_map['name'].help_text }}</span>
+                            </div>
+
+                            <label class="col-sm-2 control-label " for="id_alias">
+                                <span class="text-danger">*</span>
+                                {{ _('段落显示名') }} </label>
+
+                            <div class="col-sm-2">
+                                <input type="text" id="id_alias" name="alias"
+                                       class="form-control" v-model="model.alias"
+                                       maxlength=100
+                                       required=true>
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-group" style="">
+
+                            <label class="col-sm-3 control-label no-padding-right" for="id_name">
+                                <span class="text-danger">*</span>
+                                {{ _('组') }} </label>
+
+                            <div class="col-sm-2">
+                                {#                                <span v-show="model.language=='sql'" class="help-block">{{ _('数据表分层') }} </span>#}
+                                <input type="text" id="id_group" name="group" v-model="model.group"
+                                       class="form-control"
+                                       maxlength=100
+                                       required=true>
+                            </div>
+                            <label class="col-sm-2 control-label " for="id_alias"> </label>
+
+                            <div class="col-sm-2">
+
+                                <a-switch checked-children="{{ _('共享') }}"
+                                          un-checked-children="{{ _('私有') }}"
+                                          v-model="model.is_share"/>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="form-group" style="">
+                            <label class="col-sm-3 control-label pdt0" for="id_tag">
+                                <span class="text-danger">*</span>
+                                {{ _('段落类型标签') }} </label>
+
+                            <div class="col-sm-8">
+
+                                <a-radio-group v-model="model.tag" name="tag" @change="changeTag"
+                                               default-value="a"
+                                               button-style="solid" size="small">
+                                    {% for o in data.serializer.instance.get_fields_map().tag.choices %}
+                                        <a-radio-button value="{{ o.0 }}">{{ o.1 }}</a-radio-button>
+                                    {% endfor %}
+
+                                </a-radio-group>
+                                <div id="help_text_tag" class="middle text-danger help_text"></div>
+
+                            </div>
+                        </div>
+
+                        <div v-show="model.tag!=='udf'" class="form-group" style="">
+                            <label class="col-sm-3 control-label no-padding-right" for="id_connector">
+                                {{ _('连接器') }} </label>
+                            <div class="col-sm-2">
+                                <select class="form-control select2" v-model="model.connector" v-select2
+                                        id="id_connector"
+                                        data-placeholder="{{ _('未选择') }}"
+                                        name="connector"
+                                        data-url="{{ url('flink_platform.connector.list') }}?">
+                                    <option :value="model.connector" selected></option>
+                                </select>
+                            </div>
+                        </div>
+
+
+                        <div class="form-group" style="">
+                            <label class="col-sm-3 control-label pdt0" for="id_language">
+                                <span class="text-danger">*</span>
+                                {{ _('语言类型') }} </label>
+
+                            <div class="col-sm-8">
+
+                                <a-radio-group @change="changeCodeType" name="language"
+                                               v-model="model.language"
+                                               default-value="a"
+                                               button-style="solid" size="small">
+                                    {% for o in data.serializer.instance.get_fields_map().language.choices %}
+                                        <a-radio-button value="{{ o.0 }}">{{ o.1 }}</a-radio-button>
+                                    {% endfor %}
+
+                                </a-radio-group>
+
+                                <div id="help_text_language" class="middle text-danger help_text"></div>
+                            </div>
+                        </div>
+
+
+                        <div class="form-group" style="">
+                            <label class="col-sm-3 control-label no-padding-right" for="id_text">
+                                {{ _('代码内容') }}
+                            </label>
+
+                            <div class="col-sm-8">
+                                <span v-if="model.language=='sql'"
+                                      class="help-block">{{ _('使用 Create Talbe') }} <a target="_blank"
+                                                                                       href="https://ci.apache.org/projects/flink/flink-docs-release-1.12/zh/dev/table/sql/create.html">{{ _('语法') }}</a></span>
+                                <span v-else
+                                      class="help-block"> <a target="_blank"
+                                                             href="http://zeppelin.apache.org/docs/0.9.0-preview2/interpreter/flink.html">{{ _('语法文档') }}</a></span>
+
+                                <codemirror style="font-size: 12px" ref="id_text"
+                                            v-model="model.text"
+                                            :options="cmOptions"
+                                            id="id_text"
+                                            name="text"></codemirror>
+                                <div v-if="model.language!=='sql'">
+
+                                </div>
+                            </div>
+
+                        </div>
+
+
+                    </div>
+                </div>
+
+
+                <div class="row pane edit-save-bar">
+                    <div class="col-sm-offset-3 col-sm-3">
+                        <input id="reset-btn" class="btn btn-default" type="reset" value="{{ _('重 置') }}">
+                        <button @click="saveModel(true)" :disabled="isExecuting" class="btn btn-primary " type="button">
+                            {{ _('保 存') }}
+                        </button>
+
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="pull-right">
+                            <button @click="saveModel(false)"
+                                    :disabled="isExecuting"
+                                    class="btn btn-info "
+                                    type="button">
+                                {{ _('保存并继续编辑') }}
+                            </button>
+                            <button @click="saveModelAddOther"
+                                    :disabled="isExecuting"
+                                    class="btn btn-info "
+                                    type="button">
+                                {{ _('保存并增加另一个') }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </form>
+
+    </div>
+
+    <script src="/static/assets/codemirror/lib/codemirror.js"></script>
+    <link rel="stylesheet" href="/static/assets/codemirror/lib/codemirror.css"/>
+    <link rel="stylesheet" href="/static/assets/codemirror/addon/hint/show-hint.css"/>
+
+    <script src="/static/assets/codemirror/mode/sql/sql.js"></script>
+    <script src="/static/assets/codemirror/mode/clike/clike.js"></script>
+    <script src="/static/assets/codemirror/mode/python/python.js"></script>
+    <script src="/static/assets/codemirror/addon/display/autorefresh.js"></script>
+    <script src="/static/assets/codemirror/addon/hint/show-hint.js"></script>
+    <script src="/static/assets/codemirror/addon/hint/sql-hint.js"></script>
+    <script src="/static/assets/vue/vue-codemirror.js"></script>
+    <script>Vue.use(window.VueCodemirror)</script>
+
+
+    <script>
+
+
+        var modelData =
+        {{ data|json_dumps|safe }}
+        var modelShema =
+        {{ data.serializer.to_schema()|json_dumps|safe }}
+        var codemirrorModeMap = {sql: 'mysql', scala: 'scala', python: 'python'}
+
+
+        var vue_app = new Vue({
+            el: '#vue-container',
+            delimiters: ['((', '))'],
+            data() {
+                return {
+                    cmOptions: {
+                        mode: 'text/x-' + codemirrorModeMap[modelData.language],
+                        indentWithTabs: true,
+                        smartIndent: true,
+                        lineNumbers: true,
+                        matchBrackets: true,
+                        lineWrapping: true,
+                        autoRefresh: true,
+                        tabSize: 4,
+                        extraKeys: {
+                            "Ctrl": "autocomplete",
+                        },
+                        hint: CodeMirror.hint.sql,
+                        hintOptions: {
+                            tables: {
+                                "t_test_login": ["col_a", "col_B", "col_C"],
+                                "t_test_employee": ["other_columns1", "other_columns2"]
+                            }
+                        }
+
+                    },
+                    model: modelData,
+                    isExecuting: false,
+
+                };
+            },
+            watch: {},
+            methods: {
+                ajaxPostData: function (post_data, callback) {
+                    clearHelpText()
+                    this.isExecuting = true
+                    $.ajax({
+                        async: true,
+                        type: "POST",
+                        url: "{{ url('flink_platform.code_paragraph.save') }}?{% if data.id %}id={{ data.id }}{% endif %}{% if request.query_params.is_copy %}&is_copy=1{% endif %}",
+                        dataType: 'json',
+                        data: JSON.stringify(post_data),
+                        contentType: 'application/json',
+                        success: (rsp) => {
+                            if (rsp.code == 0) {
+                                $('[name="id"]').val(rsp.data.id)
+
+                                this.$message.success(rsp.msg, 1)
+                                clearHelpText()
+                                callback ? callback(rsp) : null
+
+                            } else {
+                                rsp.data ? addHelpText(rsp.data) : alertMsg(rsp.msg)
+                            }
+                        },
+                        error: (jqXHR, statusText, errorMsg) => {
+                            //   ajaxError(jqXHR, statusText, errorMsg)
+
+                        },
+                        complete: (jqXHR, statusText) => {
+                            this.isExecuting = false
+                        }
+
+                    })
+                },
+                saveModel: function (isCloseDialog) {
+
+                    this.ajaxPostData(this.model, (rsp) => {
+                        if (rsp.code == 0) {
+                            this.model = rsp.data
+                            refreshParentTable()
+                            if (isCloseDialog) closeSelfDialog()
+                        }
+                    })
+                },
+                saveModelAddOther: function () {
+                    this.ajaxPostData(this.model, (rsp) => {
+                        if (rsp.code == 0) {
+                            window.location.href = window.location.pathname
+                        }
+                    })
+                },
+
+                changeCodeType: function () {
+
+                    this.$refs.id_text.codemirror.setOption("mode", 'text/x-' + codemirrorModeMap[this.model.language])
+                },
+                changeTag: function () {
+                    // todu 暂时只支持 scala 的 udf
+                    if (this.model.tag == 'udf') {
+                        this.model.language = 'scala'
+                    }
+                },
+                genrateGroup: function () {
+
+                    if (this.model.name.indexOf('__') > 0) {
+                        this.model.group = this.model.name.split('__')[0]
+                    }
+                }
+            },
+            mounted: function () {
+                // 代码框 补全
+                this.$refs.id_text.codemirror.on('keyup', function (editor, event) {
+                    codemirrorShowHint(editor, event)
+                })
+
+            }
+        })
+
+    </script>
+
+
+{% endblock %}

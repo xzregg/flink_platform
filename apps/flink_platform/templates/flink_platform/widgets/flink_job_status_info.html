@@ -1,0 +1,84 @@
+<script id="status_info_tpl" type="x-template">
+    <div class="row">
+
+        <div class="col-sm-5" role="tablist" aria-multiselectable="true">
+            <div v-for="(item,k,index) in model.status_info" class=" ">
+                <div class="panel-heading"
+                     role="tab"
+                     :id="'heading_'+ k"
+                     data-toggle="collapse"
+                     data-parent="#accordion"
+                     :href="'#collapse_'+k"
+                     aria-expanded="true"
+                     :aria-controls="'collapse_'+k">
+
+                    <span class="label label-info">((k))</span>
+                    <a data-html="true" target="_blank" :href="item "
+                       :data-title="k"
+                       :class="['label', 'label-' + status_label_map[item.status] ]">((item.status || item))</a>
+
+                </div>
+                <div :id="'collapse_'+k"
+                     class="collapse"
+                     role="tabpanel"
+                     :aria-labelledby="'#heading_'+k">
+                    <div class="">
+                            ((item.errorMessage || item))
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="col-sm-7 table-responsive">
+
+
+            <table class="table table-bordered" style="word-break:break-all; word-wrap:break-all;">
+                <thead>
+                <tr class="something">
+                    <th colspan="2" class="col-sm-3">FLink Job 信息</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>Flink JobId</td>
+                    <td>((model.flink_job_id))</td>
+                </tr>
+                <tr>
+                    <td>Flink Job URL</td>
+                    <td>((model.flink_job_url))</td>
+                </tr>
+                <tr>
+                    <td>最后保存点</td>
+                    <td>((model.last_execution_savepoint))</td>
+                </tr>
+                <tr>
+                    <td>启动点</td>
+                    <td style="width: 200px">((model.execution_savepoint_path))</td>
+                </tr>
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</script>
+
+<script>
+    var status_label_map = {
+        "ERROR": "danger",
+        "FINISHED": "success",
+        "ABORT": 'warning',
+        'RUNNING': 'primary',
+        'READY': 'default',
+        'PENDING': 'info',
+        undefined: 'default'
+    }
+
+    function getStatusInfoHtml(model_data) {
+        return render_vue_tpl('#status_info_tpl', {
+            model: model_data,
+            status_label_map: status_label_map
+        })
+    }
+
+</script>

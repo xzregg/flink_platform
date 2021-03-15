@@ -1,0 +1,1129 @@
+{% extends "framework/base.html" %}
+
+{% block header %}
+    <title>{{ _('FlinkJob 编辑') }}</title>
+    <style>
+        .dataset-filter-cont .ant-btn-group {
+            width: 100%;
+        }
+
+        .dataset-filter-cont .ant-btn-group .ant-btn {
+            width: 50%;
+        }
+    </style>
+{% endblock %}
+
+
+{% block content %}
+    <div id="vue-container" v-cloak>
+        <a-affix >
+        <div class="row header">
+            <div class="col-sm-5">
+
+                <h1>{{ _('FlinkJob') }}
+                    (( model.alias ))
+                    <small>{{ _('编辑') }}</small>
+                </h1>
+
+            </div>
+            <div class="col-sm-7 text-right">
+
+                <ul class="list-inline text-right">
+                    <li v-if="executedActions.length>0"  ><b>
+                        <a-popconfirm
+                                title="{{ _('是否停止命令') }}?"
+                                ok-text="{{ _('是') }}"
+                                cancel-text="{{ _('否') }}"
+                                @confirm="revokeExecuteActions"
+                        >
+                            <a>
+                                <a-icon type="close-circle" theme="twoTone" two-tone-color="red"/>
+                            </a>
+                        </a-popconfirm>
+                        <b>  {{ _('执行命令') }}</b>:
+                        <a-icon type="loading"/>
+                    </b>
+                    </li>
+                    <li v-if="executedActions.length>0"   v-for="(item,i) in executedActions">
+
+                        <a-tooltip :title="'{{ _('执行日期') }} : ' + item.date_done + '  '+ item.status">
+                            <span class="label label-default"> ((item.task_name.split('.').pop() ))</span>
+                        </a-tooltip>
+
+                        <span>(( displayDateTimeDiffSec(item.date_done) ))</span>
+                        <a-icon type="clock-circle"/>
+
+                    </li>
+
+                    <li v-if='model.status_info.engine_url'>
+                        <a :href="model.status_info.engine_url"
+                           target="_blank">{{ _('任务引擎地址') }}
+                        </a>
+
+                    </li>
+                    <li>
+
+                        <a v-if='model.flink_job_url'
+                           :href="model.flink_job_url"
+                           target="_blank"> {{ _('FLINK JOB 地址') }}
+                        </a>
+
+
+                    </li>
+
+                    <li>
+                        <a-popover title="{{ _('任务状态') }}" @visible-change="showStatusInfo" placement="bottomRight">
+                            <template slot="content">
+                                <div style="width:700px;" v-html="status_info_html"></div>
+                            </template>
+                            <a :class="['label', 'label-' + status_label_map[model.status] ]">((model.status_alias))</a>
+                        </a-popover>
+
+
+                    </li>
+
+                    <li v-show="model.status=='RUNNING' ">
+                        <span>(( displayDateTimeDiffSec(model.start_datetime) ))</span>
+                        <a-icon type="clock-circle"/>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <hr>
+        </a-affix>
+
+        <br>
+
+        <form class="form-horizontal">
+            <a-spin :spinning="isExecuting"/>
+            <div class="row edit-form-container ">
+
+                <div id="" class="col-sm-3 ">
+
+                    <a-card size="small" title="{{ _('数据集') }}">
+                        <div class="dataset-filter-cont">
+                            <a-radio-group v-model="isProjectPrivate"
+                                           @change="changeDataset"
+                                           button-style="solid"
+                                           size="small"
+                                           class="w100">
+
+                                <a-radio-button value="false" class="w50 text-align-center">
+                                    {{ _('公共') }}
+                                </a-radio-button>
+                                <a-radio-button value="true" class="w50 text-align-center">
+                                    {{ _('项目') }}
+                                </a-radio-button>
+                            </a-radio-group>
+                        </div>
+                        <a-tabs size="small" default-active-key="1" :animated="false">
+                            <a-tab-pane key="1" :force-render="true">
+
+                                <span slot="tab">Source<span class="badge"></span></span>
+
+                                <div class="dataset-cont" style="height: 80%;overflow: auto">
+                                    <a-tree v-if="dataset.source.length>0" :show-icon="false"
+                                            v-model="model.source_list"
+                                            checkable
+                                            default-expand-parent default-expand-all
+                                            :selectable="true"
+                                            :tree-data="dataset.source" @check="onTreeCheck">
+                                        <template slot="custom" slot-scope="item">
+
+                                            <a-popover :title="item.alias"
+                                                       :mouse-enter-delay="0.5"
+                                                       placement="right"
+                                                       arrow-point-at-center>
+                                                <template slot="content">
+                                                    <p v-for="(item,key) in item.table_schema">
+                                                        <span class="label label-info">(( key ))</span> : ((
+                                                        item.join(", ") )) </p>
+
+                                                </template>
+                                                <span class="hover">(( item.title )) &nbsp;
+                                                        <a @click="openEditCodeParagraph(item,$event)"
+                                                           class="hover-container opendialog"><a-icon type="edit"/></a>
+                                                    </span>
+                                            </a-popover>
+
+
+                                        </template>
+                                    </a-tree>
+
+                                </div>
+                            </a-tab-pane>
+                            <a-tab-pane key="2" :force-render="true">
+                                <span slot="tab">Slink<span class="badge"></span></span>
+                                <div class="dataset-cont" style="height: 80%;overflow: auto">
+                                    <a-tree v-if="dataset.slink.length>0"
+                                            v-model="model.slink_list" :show-icon="false"
+                                            checkable :selectable="true"
+                                            default-expand-parent default-expand-all
+                                            :tree-data="dataset.slink" @check="onTreeCheck">
+                                        <template slot="custom" slot-scope="item">
+                                            <a-popover :title="item.alias"
+                                                       :mouse-enter-delay="0.5"
+                                                       placement="right">
+                                                <template slot="content">
+                                                    <p v-for="(item,key) in item.table_schema">
+                                                        <span class="label label-info">(( key ))</span> : ((
+                                                        item.join(",") )) </p>
+
+                                                </template>
+                                                <span class="hover">(( item.title )) &nbsp;
+                                                        <a @click="openEditCodeParagraph(item,$event)"
+                                                           class="hover-container opendialog"><a-icon type="edit"/></a>
+                                                    </span>
+                                            </a-popover>
+
+
+                                        </template>
+
+                                    </a-tree>
+                                </div>
+                            </a-tab-pane>
+                            <a-tab-pane key="3" :force-render="true">
+                                <span slot="tab">UDF<span class="badge"></span></span>
+                                <div class="dataset-cont" style="height: 80%;overflow: auto">
+                                    <a-tree v-if="dataset.udf.length>0"
+                                            v-model="model.udf_list" :show-icon="false"
+                                            :selectable="true" checkable
+                                            default-expand-parent default-expand-all
+                                            :tree-data="dataset.udf">
+                                        <template slot="custom" slot-scope="item">
+                                            <a-tooltip :title="item.alias">
+                                                    <span class="hover">(( item.title )) &nbsp;
+                                                        <a @click="openEditCodeParagraph(item,$event)"
+                                                           class="hover-container opendialog"><a-icon type="edit"/></a>
+                                                    </span>
+                                            </a-tooltip>
+
+                                        </template>
+                                    </a-tree>
+                                </div>
+                            </a-tab-pane>
+                        </a-tabs>
+                    </a-card>
+
+                </div>
+
+                <div class="col-sm-9">
+
+                <div class="">
+                    <a-tabs class="" size="small" :animated="false" @change="changeTab" :default-active-key="model.id ? '2': '1'">
+                        <a-tab-pane key="1" tab="{{ _('基本信息') }}" :force-render="true">
+                            {{ csrf_input }}
+                            <div v-if="model.id" class="form-group" style="display:none">
+                                <label class="col-sm-2 control-label no-padding-right" for="id_id">
+                                    {{ _('id') }} </label>
+                                <div class="col-sm-8">
+                                    <input type="number"
+                                           id="id_id"
+                                           name="id"
+                                           class="form-control" v-model="model.id">
+                                </div>
+                            </div>
+
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-2 control-label no-padding-right" for="id_project">
+                                    {{ _('所属项目') }} </label>
+                                <div class="col-sm-2">
+                                    <select v-select2
+                                            v-model="model.project"
+                                            class="form-control select2"
+                                            id="id_project"
+                                            data-placeholder="{{ _('无') }}"
+                                            name="project"
+                                            data-url="{{ url('flink_platform.project.list') }}?">
+                                        <option value="{{ data.project or '' }}">{{ data.project or _('无') }} </option>
+
+                                    </select>
+                                </div>
+
+                                {% if request.user.is_root %}
+                                    <label class="col-sm-1 control-label no-padding-right" for="id_author">
+                                        <span class="text-danger">*</span>
+                                        {{ _('作者') }} </label>
+
+                                    <div class="col-sm-3">
+                                        <select class="form-control select2" v-model="model.author" v-select2
+                                                id="id_author"
+                                                data-placeholder="{{ _('无') }}"
+                                                name="author"
+                                                data-url="{{ url('myadmin.user.list') }}">
+                                            <option value="{{ data.author or '' }}">
+                                                {{ data.author or _('无') }} </option>
+                                        </select>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+
+                            <div class="form-group" style="">
+
+                            </div>
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-2 control-label no-padding-right" for="id_name">
+                                    <span class="text-danger">*</span>
+                                    {{ _('任务名') }} </label>
+
+                                <div class="col-sm-8">
+                                    <input type="text" id="id_name" name="name" v-model="model.name"
+                                           class="form-control"
+                                           maxlength=100
+                                           required=true>
+                                </div>
+                            </div>
+
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-2 control-label no-padding-right" for="id_alias">
+                                    <span class="text-danger">*</span>
+                                    {{ _('任务简称') }} </label>
+
+                                <div class="col-sm-8">
+                                    <input type="text" id="id_alias" name="alias" v-model="model.alias"
+                                           class="form-control"
+                                           maxlength=100
+                                           required=true>
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-2 control-label no-padding-right" for="id_remark">
+                                    {{ _('任务备注') }} </label>
+                                <div class="col-sm-8">
+                                        <textarea class="form-control limited" v-model="model.remark"
+                                                  id="id_remark"
+                                                  name="remark"></textarea>
+                                </div>
+                            </div>
+                            <div v-show="model.id">
+                                <div class="form-group" style="">
+                                    <label class="col-sm-2 control-label no-padding-right" for="id_job_id">
+                                        {{ _('任务ID') }} </label>
+                                    <div class="col-sm-8">
+                                        <input type="text" id="id_job_id" name="job_id" v-model="model.job_id"
+                                               class="form-control"
+                                               maxlength=100
+                                        >
+                                    </div>
+                                </div>
+
+
+                                <div class="form-group" style="">
+                                    <label class="col-sm-2 control-label no-padding-right"
+                                           for="id_flink_job_id">
+                                        {{ _('Flink Job ID') }} </label>
+                                    <div class="col-sm-8">
+                                        <input type="text"
+                                               id="id_flink_job_id"
+                                               name="flink_job_id"
+                                               v-model="model.flink_job_id"
+                                               class="form-control"
+                                               maxlength=100
+                                        >
+                                    </div>
+                                </div>
+
+                                <div class="form-group" style="">
+                                    <label class="col-sm-2 control-label no-padding-right"
+                                           for="id_flink_job_url">
+                                        {{ _('Flink Job Url') }} </label>
+                                    <div class="col-sm-8">
+                                        <input type="text"
+                                               id="id_flink_job_url"
+                                               name="flink_job_url"
+                                               v-model="model.flink_job_url"
+                                               class="form-control"
+                                               maxlength=200
+                                        >
+                                    </div>
+                                </div>
+                                <div class="form-group" style="">
+                                    <label class="col-sm-2 control-label no-padding-right"
+                                           for="id_start_datetime">
+                                        {{ _('任务开始执行时间') }} </label>
+                                    <div class="col-sm-8">
+                                        <input type="text"
+                                               id="id_start_datetime"
+                                               name="start_datetime"
+                                               class="form-control datetime " v-model="model.start_datetime">
+                                    </div>
+                                </div>
+
+
+                                <div class="form-group" style="">
+                                    <label class="col-sm-2 control-label no-padding-right"
+                                           for="id_stop_datetime">
+
+                                        {{ _('任务停止执行时间') }} </label>
+
+                                    <div class="col-sm-8">
+                                        <input type="text"
+                                               id="id_stop_datetime"
+                                               name="stop_datetime"
+                                               class="form-control datetime " v-model="model.stop_datetime">
+                                    </div>
+                                </div>
+
+                                <div class="form-group" style="">
+                                    <label class="col-sm-2 control-label no-padding-right"
+                                           for="id_create_datetime">
+
+                                        {{ _('创建时间') }} </label>
+
+                                    <div class="col-sm-8">
+                                        <input type="text"
+                                               id="id_create_datetime"
+                                               name="create_datetime"
+                                               class="form-control datetime " v-model="model.create_datetime"
+                                        >
+                                    </div>
+                                </div>
+
+
+                                <div class="form-group" style="">
+                                    <label class="col-sm-2 control-label no-padding-right"
+                                           for="id_update_datetime">
+                                        {{ _('更新时间') }} </label>
+                                    <div class="col-sm-8">
+                                        <input type="text"
+                                               id="id_update_datetime"
+                                               name="update_datetime"
+                                               class="form-control datetime " v-model="model.update_datetime"
+
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+
+                        </a-tab-pane>
+                        <a-tab-pane key="2" tab="{{ _('任务内容') }}" :force-render="true">
+
+
+                            <div class="form-group" style="">
+                                <div class="col-sm-12">
+                                    <label  for="id_task_code_type">
+                                        <a-radio-group v-model="model.task_code_type"
+                                                       @change="changeTaskCodeType"
+                                                       button-style="solid" size="small">
+                                            {% for o in data.serializer.instance.get_fields_map().task_code_type.choices %}
+                                                <a-radio-button value="{{ o.0 }}">{{ o.1 }}</a-radio-button>
+                                            {% endfor %}
+                                        </a-radio-group>
+                                    </label>
+                                    <codemirror style="font-size: 12px" ref="id_task_content"
+                                                v-model="model.task_content"
+                                                :options="cmOptions"
+                                                id="id_task_content"
+                                                name="task_content"></codemirror>
+                                </div>
+                            </div>
+                        </a-tab-pane>
+
+
+                        <a-tab-pane key="3" tab="{{ _('任务配置') }}" :force-render="true">
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-4  " for="id_mode">
+                                    <a-radio-group disabled
+                                                   v-model="model.mode"
+                                                   button-style="solid"
+                                    >
+                                        {% for o in data.serializer.instance.get_fields_map().mode.choices %}
+                                            <a-radio-button :value="{{ o.0 }}">{{ o.1 }}</a-radio-button>
+                                        {% endfor %}
+                                    </a-radio-group>
+                                </label>
+                            </div>
+
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-3 control-label " for="id_cron">
+                                    {{ _('并行度') }} </label>
+                                <div class="col-sm-8">
+                                    <input name="parallelism"
+                                           type="number"
+                                           v-model="model.task_properties.parallelism"
+                                           min="1"
+                                           max="256"
+                                           style="width: 100px"
+                                           class="form-control"
+                                           placeholder="">
+                                </div>
+                            </div>
+
+
+                            <div v-show="model.mode==0" class="form-group" style="">
+                                <label class="col-sm-3 control-label " for="id_cron">
+                                    {{ _('cron 定时执行') }} </label>
+                                <div class="col-sm-8">
+                                    <input type="text" id="id_cron" name="cron"
+                                           class="form-control" value="{{ data.cron or "" }}"
+                                           maxlength=100
+                                    >
+                                </div>
+                            </div>
+
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-3 control-label no-padding-right"
+                                       for="id_flink_config">
+                                    {{ _('Flink Config 配置') }} </label>
+                                <div class="col-sm-8">
+                                    <p class="help-block">{{ _('配置参考:') }}<a
+                                            href="https://ci.apache.org/projects/flink/flink-docs-release-1.12/zh/deployment/config.html"
+                                            target="_blank">https://ci.apache.org/projects/flink/flink-docs-release-1.12/zh/deployment/config.html</a>
+                                    </p>
+                                    <textarea v-model.trim="model.flink_config"
+                                              class="form-control limited"
+                                              id="id_flink_config"
+                                              name="flink_config"
+                                              style="min-height: 250px"
+                                    ></textarea>
+                                </div>
+                            </div>
+
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-3 control-label no-padding-right"
+                                       for="id_flink_table_config">
+                                    {{ _('Flink Table Config 配置') }} </label>
+                                <div class="col-sm-8">
+                                    <p class="help-block">{{ _('Scala 语法 使用代码控制,参考:') }}<a
+                                            href="https://ci.apache.org/projects/flink/flink-docs-stable/zh/dev/table/streaming/query_configuration.html"
+                                            target="_blank">https://ci.apache.org/projects/flink/flink-docs-stable/zh/dev/table/streaming/query_configuration.html</a>
+                                    </p>
+
+                                    <codemirror style="font-size: 12px" ref="id_flink_table_config"
+                                                v-model="model.flink_table_config"
+                                                :options="{mode: 'text/x-scala' ,
+                                                                indentWithTabs: true,
+                                                                smartIndent: true,
+                                                                lineNumbers: true,
+                                                                matchBrackets: true,
+                                                                lineWrapping: true,
+                                                                autoRefresh:true,
+                                                                tabSize: 4}"
+                                                id="id_flink_table_config"
+                                                name="flink_table_config"></codemirror>
+
+                                </div>
+                            </div>
+
+                        </a-tab-pane>
+
+                        <a-tab-pane key="4" tab="{{ _('保存点') }}" :force-render="true">
+                            <div class="form-group" style="">
+                                <label class="col-sm-2 control-label no-padding-right"
+                                       for="id_execution_savepoint_path">
+                                    <span class="text-danger">*</span>
+                                    {{ _('启动 savepoint 路径') }} </label>
+
+                                <div class="col-sm-8">
+
+                                    <input type="text" title="{{ _('清空启动路径则会以全新状态启动') }}"
+                                           id="id_execution_savepoint_path"
+                                           name="execution_savepoint_path"
+                                           class="form-control"
+                                           v-model="model.execution_savepoint_path"
+                                           maxlength=2000
+                                    >
+                                    <div class="help-block">
+                                        <span>{{ _('使用最后保存点启动') }}
+                                            <a-switch v-model="useLastSavepoint" :disabled="isBrandNewStart"
+                                                      checked-children="是"
+                                                      un-checked-children="否"/>
+
+                                        </span> {{ _('全新执行') }}
+                                        <a-switch @change="changeBrandNewStart" v-model="isBrandNewStart"
+                                                  checked-children="是"
+                                                  un-checked-children="否"/>
+                                        <span></span>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            <div class="form-group" style="">
+                                <label class="col-sm-2 control-label no-padding-right"
+                                       for="id_last_execution_savepoint">
+                                    <span class="text-danger">*</span>
+                                    {{ _('最后 savepoint 路径') }} </label>
+
+                                <div class="col-sm-8">
+                                    <input type="text" readonly
+                                           id="id_last_execution_savepoint"
+                                           name="last_execution_savepoint"
+                                           class="form-control"
+                                           v-model="model.last_execution_savepoint"
+                                           maxlength=2000
+                                    >
+                                </div>
+                            </div>
+
+
+                            <div class="col-sm-12">
+                                <table ref='storage_points_file_list_table'
+                                       data-select-item-name="dir_path"
+                                       data-id-field="dir_path"
+                                       data-single-select="true"
+                                       data-click-to-select="false"
+                                       data-height="500"
+                                       data-data-field="points"
+                                       :data-url="'{{ url('flink_platform.flink_job.storage_file_list') }}?id='+ (model.id || 0)"
+                                       class="">
+                                    <thead>
+                                    <tr>
+                                        <th data-checkbox="true"></th>
+                                        <th data-field='dir_path' data-width="150">{{ _('选择保存点启动') }}</th>
+                                        <th data-field='owner' data-width="50">{{ _('所有者') }}</th>
+                                        <th data-field='storage_type' data-width="50">类型</th>
+                                        <th data-field='modification_time'
+                                            data-sortable="true">{{ _('保存时间') }}</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+
+                                    </tbody>
+                                </table>
+                            </div>
+
+
+                        </a-tab-pane>
+
+
+                    </a-tabs>
+                </div>
+
+                </div>
+
+
+            </div>
+
+            <div class="row pane edit-save-bar">
+
+
+                <div class="col-sm-offset-3 col-sm-9">
+                    <input id="reset-btn"
+                           :disabled="isExecuting"
+                           class="btn btn-default"
+                           type="reset"
+                           value="{{ _('重 置') }}">
+                    <button @click="saveModel(true)"
+                            :disabled="isExecuting"
+                            class="btn btn-primary "
+                            type="button">
+                        {{ _('保 存') }}
+                    </button>
+
+                    <div class="pull-right">
+
+                        <a-button icon="play-circle" @click="start_job" type="primary" class="btn btn-default"
+                                v-show="model.status!=='RUNNING' && model.status!=='PENDING' ">
+                            {{ _('运 行') }}
+                        </a-button>
+
+                        <a-popconfirm
+                                :disabled="isExecuting"
+                                title="{{ _('是否停止任务,强制 则会关闭 flink 进程') }}?"
+                                ok-text="{{ _('确认') }}"
+                                cancel-text="{{ _('强制') }}"
+                                @confirm="stop_job(false)"
+                                @cancel="stop_job(true)"
+                        >
+
+                            <a-button icon="stop" class="btn btn-default">{{ _('停 止') }} </a-button>
+                        </a-popconfirm>
+
+                        <a-popconfirm
+                                :disabled="isExecuting"
+                                title="{{ _('是否重启任务') }}?"
+                                ok-text="{{ _('确认') }}"
+                                cancel-text="{{ _('强制') }}"
+                                @confirm="restart_job(false)"
+                                @cancel="restart_job(true)"
+                        >
+                            <a-button icon="redo" class="btn btn-default">
+                                {{ _('重 启') }}
+                            </a-button>
+                        </a-popconfirm>
+
+
+                        <button @click="saveModel(false)"
+                                :disabled="isExecuting"
+                                class="btn   btn-info "
+                                type="button">
+                            {{ _('保存并继续编辑') }}
+                        </button>
+                        <button @click="saveModelAddOther"
+                                :disabled="isExecuting"
+                                class="btn  btn-info "
+                                type="button">
+                            {{ _('保存并增加另一个') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+    </div>
+    {% include 'flink_platform/widgets/flink_job_status_info.html' %}
+
+    <script src="/static/assets/codemirror/lib/codemirror.js"></script>
+    <link rel="stylesheet" href="/static/assets/codemirror/lib/codemirror.css"/>
+    <link rel="stylesheet" href="/static/assets/codemirror/addon/hint/show-hint.css"/>
+
+    <script src="/static/assets/codemirror/mode/sql/sql.js"></script>
+    <script src="/static/assets/codemirror/mode/clike/clike.js"></script>
+    <script src="/static/assets/codemirror/mode/python/python.js"></script>
+    <script src="/static/assets/codemirror/addon/display/autorefresh.js"></script>
+    <script src="/static/assets/codemirror/addon/hint/show-hint.js"></script>
+    <script src="/static/assets/codemirror/addon/hint/sql-hint.js"></script>
+    <script src="/static/assets/codemirror/addon/comment/continuecomment.js" type="text/javascript"></script>
+
+    <script src="/static/assets/codemirror/addon/comment/comment.js" type="text/javascript"></script>
+    <script src="/static/assets/vue/vue-codemirror.js"></script>
+    <script>Vue.use(window.VueCodemirror)</script>
+    <script type="text/javascript" src="/celery_task_result/js?v={{ settings.RELEASE }}"></script>
+
+    <style type="text/css">
+        .CodeMirror {
+            border: 1px solid #eee;
+            height: auto;
+
+        }
+    </style>
+
+    <script>
+        var modelData =
+        {{ data|json_dumps|safe }}
+        var modelShema =
+        {{ data.serializer.to_schema()|json_dumps|safe }}
+        var codemirrorModeMap = {sql: 'text/x-hive', scala: 'text/x-scala', python: 'text/x-python'}
+
+        var vue_app = new Vue({
+            el: '#vue-container',
+            delimiters: ['((', '))'],
+            data: () => {
+                return {
+                    dateTime: new Date(),
+                    status_label_map: status_label_map,
+                    status_info_html: '',
+                    cmOptions: {
+                        mode: codemirrorModeMap[modelData.task_code_type],
+                        indentWithTabs: true,
+                        smartIndent: true,
+                        lineNumbers: true,
+                        matchBrackets: true,
+                        lineWrapping: true,
+                        autoRefresh: true,
+                        tabSize: 4,
+                        extraKeys: {
+                            "Ctrl": "autocomplete",
+                            "Ctrl-/": "toggleComment",
+                            "Cmd-/": "toggleComment",
+                        },
+
+                        autoCloseBrackets: true,
+                        hint: CodeMirror.hint.sql,
+                        hintOptions: {
+                            completeSingle: false, // 当匹配只有一项的时候是否自动补全s
+                            tables: {
+                                "t_test_login": ["col_a", "col_B", "col_C"],
+                                "t_test_employee": ["other_columns1", "other_columns2"]
+                            }
+                        }
+
+                    },
+                    model: modelData,
+                    force: false,
+                    isProjectPrivate: 'false',
+                    executedActions: [],
+                    isExecuting: false,
+                    isBrandNewStart: false,
+                    celeryTaskResult: new CelertTasKResult(),
+                    useLastSavepoint: true,
+                    dataset: {
+                        source: [], slink: [], udf: []
+                    },
+                    autoExpandParent: true,
+                    defaultExpandedKeys: [],
+                    storageFileList: {'checkpoints': [], 'savepoints': []}
+                }
+
+            },
+            watch: {
+                checkedKeys(val) {
+                    console.log('onCheck', val);
+                },
+            },
+            methods: {
+                testEvent:function(e){
+                  console.dir(e)
+                },
+                displayDateTimeDiffSec(datetimeStr) {
+                    return formatDuration(this.dateTime, new Date(datetimeStr))
+                },
+                ajaxPostData: function (post_data, callback) {
+                    clearHelpText()
+                    this.isExecuting = true
+                    this.model.code_paragraphs = [].concat(this.model.source_list, this.model.slink_list, this.model.udf_list)
+                    $.ajax({
+                        async: true,
+                        type: "POST",
+                        url: "{{ url('flink_platform.flink_job.save') }}?{% if data.id %}id={{ data.id }}{% endif %}{% if request.query_params.is_copy %}&is_copy=1{% endif %}",
+                        dataType: 'json',
+                        data: JSON.stringify(post_data),
+                        contentType: 'application/json',
+                        success: (rsp) => {
+                            if (rsp.code == 0) {
+                                $('[name="id"]').val(rsp.data.id)
+
+                                this.$message.success(rsp.msg, 1)
+                                clearHelpText()
+                                callback ? callback(rsp) : null
+
+                            } else {
+                                rsp.data ? addHelpText(rsp.data) : alertMsg(rsp.msg)
+                            }
+                        },
+                        error: (jqXHR, statusText, errorMsg) => {
+                            ajaxError(jqXHR, statusText, errorMsg)
+
+                        },
+                        complete: (jqXHR, statusText) => {
+                            this.isExecuting = false
+                        }
+
+                    })
+                },
+                saveModel: function (isCloseDialog) {
+                    this.ajaxPostData(this.model, (rsp) => {
+                        if (rsp.code == 0) {
+                            this.model = rsp.data
+                            refreshParentTable()
+                            if (isCloseDialog) closeSelfDialog()
+                        }
+                    })
+                },
+                saveModelAddOther: function () {
+                    this.ajaxPostData(this.model, (rsp) => {
+                        if (rsp.code == 0) {
+                            window.location.href = window.location.pathname
+                        }
+                    })
+                },
+
+                convertToTreeDateSet: function (dataset) {
+
+                    var table_schemas = {}
+                    var _this = this
+
+                    function find_tree_list_index(key, child_list) {
+                        for (i in child_list) {
+                            if (child_list[i].key == key) return i
+                            return -1
+                        }
+                    }
+
+                    function get_or_create_children_list(key, children_list, default_node) {
+                        var _index = find_tree_list_index(key, children_list)
+                        if (_index > 0) return children_list[_index]
+                        children_list.push(default_node)
+                        return default_node
+                    }
+
+                    function genrate_tag_dataset(tag_dataset_list, target_tree_dataset_list, datasetType) {
+                        var parent_children_list = null
+                        for (var connector_name in tag_dataset_list) {
+
+
+                            var connector_children = null
+
+                            if (connector_name == '') {
+                                connector_children = target_tree_dataset_list
+                            } else {
+                                var connector_item = get_or_create_children_list(connector_name, target_tree_dataset_list, {
+                                    title: connector_name,
+                                    key: connector_name,
+                                    checkable: false,
+                                    children: []
+                                })
+
+                                connector_children = connector_item.children
+                            }
+                            var connector_list = tag_dataset_list[connector_name]
+
+                            for (var group_name in connector_list) {
+
+                                var group_children = null
+
+                                if (group_name == '') {
+                                    group_children = connector_children
+                                } else {
+                                    var group_item = get_or_create_children_list(group_name, connector_children, {
+                                        title: group_name,
+                                        key: group_name,
+                                        checkable: false,
+                                        children: []
+                                    })
+                                    group_children = group_item.children
+                                }
+                                var gourp_list = connector_list[group_name]
+
+                                for (var _i in gourp_list) {
+                                    var item = gourp_list[_i]
+                                    item.scopedSlots = {title: 'custom'}
+                                    item.checkable = true
+                                    group_children.push(item)
+
+                                    Object.assign(table_schemas, item.table_schema)
+                                    if (datasetType == 'udf') {
+                                        _this.addTaskEditorUdfHint(item.title)
+                                    }
+
+                                }
+                            }
+
+                        }
+
+                    }
+
+                    genrate_tag_dataset(dataset.source, this.dataset.source)
+                    genrate_tag_dataset(dataset.slink, this.dataset.slink)
+                    genrate_tag_dataset(dataset.udf, this.dataset.udf, 'udf')
+                    this.cmOptions.hintOptions.tables = table_schemas
+                    this.addTaskEditorHint(this.cmOptions.hintOptions)
+
+                },
+                getDataset: function () {
+
+                    //{connector__is_null: isPublic}
+                    $.getJSON('{{ url('flink_platform.code_paragraph.code_paragraphs_tree') }}', {is_project_private: this.isProjectPrivate}, (rsp) => {
+                        this.convertToTreeDateSet(rsp.data)
+                    })
+                },
+                changeDataset: function (e) {
+                    this.dataset = {
+                        source: [], slink: [], udf: []
+                    }
+                    this.getDataset()
+                },
+                changeTab: function () {
+                    //this.$refs.id_task_content.codemirror.refresh();
+                },
+                addTaskEditorHint: function (hintOptions) {
+                    // 代码框添加自动补全
+                    this.$refs.id_task_content.codemirror.setOption("hintOptions", hintOptions)
+                },
+                addTaskEditorUdfHint:function(udfName){
+
+                    CodeMirror.resolveMode('text/x-hive').keywords[udfName]=true
+                } ,
+                changeTaskCodeType: function () {
+                    console.dir(this.$refs.id_task_content.codemirror)
+                    this.$refs.id_task_content.codemirror.setOption("mode", codemirrorModeMap[this.model.task_code_type])
+                    if (this.model.task_code_type == 'sql') {
+                        this.$refs.id_task_content.codemirror.setOption("hint", CodeMirror.hint.sql)
+                    }
+                },
+                onExpand(expandedKeys) {
+                    console.log('onExpand', expandedKeys);
+
+                    this.autoExpandParent = false;
+                },
+                onTreeCheck(checkedKeys, {checked: bool, checkedNodes, node, event}) {
+                    console.dir(checkedKeys)
+                    //this.checkedKeys = checkedKeys;
+                },
+                onSelect(selectedKeys, info) {
+                    console.dir(selectedKeys)
+                    console.log('onSelect', info);
+                    //this.selectedKeys = selectedKeys;
+                },
+                openEditCodeParagraph(item, e) {
+                    stopEevent(e)
+                    var url = '{{ url('flink_platform.code_paragraph.edit') }}' + '?id=' + item.key
+                    art.dialog.open(url, {title: item.alias, width: 'auto', height: '90%', id: url})
+
+                },
+                onCmCodeChange: function (newCode) {
+                    console.log(this)
+                    console.dir(newCode)
+                },
+                showStatusInfo: function (isVisible) {
+                    if (!isVisible) {
+                        return
+                    }
+
+                    this.refreshStatusInfo((rsp) => {
+                        if (rsp.code == 0) {
+                            this.model = Object.assign(this.model, rsp.data);
+                            this.status_info_html = getStatusInfoHtml(this.model)
+
+                        } else {
+                            this.$message.error({{ _('获取状态信息失败') }})
+                        }
+                    })
+
+
+                },
+                refreshStatusInfo: function (callback) {
+                    $.getJSON("{{ url('flink_platform.flink_job.status_info') }}", {
+                        id: this.model.id,
+                    }, (rsp) => {
+                        if (rsp.code == 0) {
+                            console.dir(rsp)
+                            this.model = Object.assign(this.model, rsp.data);
+                            callback ? callback(rsp) : null
+                        }
+                    })
+
+                },
+
+                // 停止执行的操作
+                revokeExecuteActions: function () {
+                    var task_ids = $.map(this.executedActions, (row) => {
+                        return row.task_id
+                    })
+                    this.celeryTaskResult.revokeExecuteTask(null, task_ids, (rsp) => {
+                        setTimeout(this.queryProgressAction, 3000)
+                    })
+
+                },
+                celeryTaskResultHandle: function (row_id, task_result, is_all_done, rsp) {
+                    this.executedActions = rsp.data
+                    console.dir(rsp)
+                    if (is_all_done) {
+                        this.isExecuting = false
+                        this.refreshStatusInfo()
+                        this.executedActions = []
+                        this.$message.success(task_result.status, 2)
+                        if (task_result.traceback){
+                            this.$message.error(task_result.traceback)
+                        }
+                    }
+                },
+                // 查询正在进行的操作任务
+                queryProgressAction: function (queryTimes) {
+
+                    if (!this.model.id) return
+                    this.celeryTaskResult.queryProgressTask(this.model.id, null, (rsp) => {
+                        var idmap = {}
+                        var progress_task_result = rsp.data
+                        this.refreshStatusInfo()
+                        if (progress_task_result.length <= 0) {
+                            return
+                        }
+                        for (var i in progress_task_result) {
+                            idmap[progress_task_result[i].a_id] = progress_task_result[i].task_result_id[0]
+                        }
+                        this.isExecuting = true
+
+                        this.celeryTaskResult.queryTaskResult(idmap, this.celeryTaskResultHandle)
+                    })
+
+
+                },
+                _execute_action: function (url, postData) {
+                    this.isExecuting = true
+                    this.model.status = 'PENDING'
+                    var _this = this
+                    var postData = Object.assign({id: this.model.id}, postData)
+
+                    $.post(url, postData, (rsp) => {
+                        if (rsp.code == 0) {
+                            this.celeryTaskResult.queryTaskResult(rsp.data.idmap, this.celeryTaskResultHandle)
+                            //setTimeout(this.queryProgressAction(5), 2000)
+                            this.$message.success(rsp.msg, 1)
+                        } else {
+                            this.$message.error(rsp.msg)
+                        }
+                    }, 'json')
+                },
+
+                doAction: function (url, postData) {
+
+                    // 不使用 最后保存点,先保存再执行
+                    if (!this.useLastSavepoint) {
+                        this.ajaxPostData({
+                            id: this.model.id,
+                            execution_savepoint_path: this.model.execution_savepoint_path
+                        }, (rsp) => {
+                            if (rsp.code == 0) {
+                                this.model = rsp.data
+                                setTimeout(() => {
+                                    this.isExecuting = true
+                                }, 10)
+                                this._execute_action(url, postData)
+                            }
+                        })
+                    } else {
+                        this._execute_action(url, postData)
+                    }
+
+                },
+                start_job: function () {
+                    this.doAction("{{ url('flink_platform.flink_job.start') }}", {use_last_savepoint: this.useLastSavepoint})
+                },
+                stop_job: function (is_force) {
+                    this.doAction("{{ url('flink_platform.flink_job.stop') }}", {force: is_force})
+                },
+                restart_job: function (is_force) {
+                    this.doAction("{{ url('flink_platform.flink_job.restart') }}", {
+                        force: is_force,
+                        use_last_savepoint: this.useLastSavepoint
+                    })
+                },
+                changeBrandNewStart: function (checked) {
+                    if (checked) {
+                        this.model.execution_savepoint_path = ''
+                        this.useLastSavepoint = false
+                    } else {
+                        this.model.execution_savepoint_path = this.model.last_execution_savepoint
+
+                    }
+                }
+            },
+            mounted: function () {
+                var _this = this
+                this.queryProgressAction()
+                // 代码框 补全
+                this.$refs.id_task_content.codemirror.on('keyup', function (editor, event) {
+                    codemirrorShowHint(editor, event)
+                })
+                this.$refs.id_flink_table_config.codemirror.setSize('100%', 200);
+                var $table = $(this.$refs.storage_points_file_list_table)
+                $table.bootstrapTable({
+                    onPostBody: (data) => {
+                        // $table.bootstrapTable('checkBy', {
+                        //     field: 'dir_path',
+                        //     values: [this.model.execution_savepoint_path]
+                        // })
+                    },
+                })
+
+                $table.on('check.bs.table uncheck.bs.table', function () {
+                    var selections = $table.bootstrapTable('getSelections')
+                    if (selections.length > 0) {
+                        _this.model.execution_savepoint_path = selections[0].dir_path
+                        _this.useLastSavepoint = false
+                    } else {
+                        _this.useLastSavepoint = true
+                        _this.model.execution_savepoint_path = _this.model.last_execution_savepoint
+                    }
+
+                })
+                this.getDataset()
+                setInterval(() => {
+                    this.dateTime = new Date();
+                }, 1000);
+
+            }
+        })
+    </script>
+{% endblock %}
