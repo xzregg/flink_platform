@@ -7,9 +7,11 @@
 # @Desc    : 
 
 
+import requests
 from framework.utils import ObjectDict, OrderedDict
 from framework.utils.cache import CacheAttribute
 from framework.utils.myenum import Enum
+from furl import furl
 
 
 class EngineStateCode(Enum):
@@ -97,6 +99,20 @@ class BaseFlinkJobEngine(object):
         task_code_generator_map[TaskTypes.MainTask] = self.compile_main_task
 
         return task_code_generator_map
+
+    def update_main_task_status(self):
+        from ..models.flink_job import FlinkJob, TaskTypes
+        ret = {'status': FlinkJob.Status.Error}
+        if self.flink_job_id and self.flink_job_url:
+            base_furl = furl(self.flink_job_url)
+            base_furl.fragment = ''
+            base_furl.path.add('jobs').add(self.flink_job_id)
+            rsp = requests.get(base_furl.url, timeout=3)
+            # flink job status https://ci.apache.org/projects/flink/flink-docs-release-1.12/zh/ops/rest_api.html
+            ret = rsp.json()
+            ret['status'] = ret['state']
+        self.status_info[TaskTypes.MainTask].update(ret)
+        return self.status_info
 
     def delete_job(self):
         raise Exception("rewrite the method")

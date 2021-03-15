@@ -13,14 +13,14 @@ from dataclasses import dataclass
 
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
-from furl import furl
-
 from framework.models import BaseModel, ObjectDictField
 from framework.serializer import ConfigOptionSerializer, DataSerializer, s
-from framework.utils import ObjectDict, timestamp_to_datetime_str, trace_msg, DATETIMEFORMAT
+from framework.utils import DATETIMEFORMAT, ObjectDict, timestamp_to_datetime_str, trace_msg
 from framework.utils.cache import CacheAttribute
 from framework.utils.myenum import Enum
 from framework.validators import LetterValidator
+from furl import furl
+
 from myadmin.models.user import User
 from .paragraph import CodeParagraph
 from .project import Project
@@ -59,6 +59,7 @@ set table.exec.mini-batch.allow-latency=5s;
 set table.exec.mini-batch.size=5000;
 set table.exec.state.ttl=2d;
 """
+
 
 class FlinkTableConfigTpl(object):
     code_prefix = '%flink'
@@ -99,7 +100,7 @@ class ParagraphProperties(ConfigOptionSerializer):
     maxParallelism = s.IntegerField(label=_('最大并行数'), default=32768,
                                     help_text=_('specify the flink sql job parallelism'))
 
-    savepointDir = s.CharField(label=_('记录点保存目录'),allow_blank=True, default='', help_text=_(
+    savepointDir = s.CharField(label=_('记录点保存目录'), allow_blank=True, default='', help_text=_(
             'If you specify it, then when you cancel your flink job in Zeppelin, it would also do savepoint and store state in this directory. And when you resume your job, it would resume from this savepoint.'))
 
     resumeFromSavepoint = s.BooleanField(label=_('是否从保存目录恢复'), default=False,
@@ -121,9 +122,6 @@ class TaskTypes(CodeParagraph.TagType):
     Config = 'config', _('Flink Job 全局配置')
     TableConfig = 'table_config', _('Flink Table 配置')
     MainTask = 'task', _('Flink 主要任务')
-
-
-
 
 
 class FlinkJob(BaseModel):
@@ -181,6 +179,7 @@ class FlinkJob(BaseModel):
     last_execution_savepoint = models.CharField(_('最后 savepoint 路径'), max_length=2000, null=True, blank=True)
     execution_savepoint_path = models.CharField(_('启动 savepoint 路径'), max_length=2000, null=True, blank=True,
                                                 default='')
+
     @property
     def author_alias(self):
         return self.author.alias if self.author else ''
@@ -192,9 +191,10 @@ class FlinkJob(BaseModel):
     def set_status_info(self, status_info):
         if isinstance(status_info, str):
             status_info = json.loads(status_info)
-        status_info = FlinkJobStatusInfoSerializer(data=status_info)
+        status_info = FlinkJobStatusInfoSerializer(data={'status_info': status_info})
         status_info.o.engine_url = self.job_engine.get_engine_url()
         self.status_info = status_info.data
+
         return self.status_info
 
     def get_status_info(self):
@@ -240,12 +240,13 @@ class FlinkJob(BaseModel):
         :return:
         """
         try:
-            status_info_map = self.job_engine.get_status_info()
+            status_info_map = self.job_engine.status_info
 
-            self.set_status_info(status_info_map)
             self.update_job_url()
             self.update_job_id()
             self.update_last_execution_savepoint()
+            status_info_map = self.job_engine.update_main_task_status()
+            self.set_status_info(status_info_map)
             for k, status_info in status_info_map.items():
                 task_status = status_info.get('status', 'ERROR')
                 self.status = self.Status(task_status)
@@ -255,7 +256,8 @@ class FlinkJob(BaseModel):
         except Exception as e:
             self.status = self.Status.Error
             logging.error(e.args[0])
-            self.set_status_info({TaskTypes.MainTask: {'status': self.Status.Error, 'errorMessage': e.args[0]}})
+            self.set_status_info(
+                    {'status_info': {TaskTypes.MainTask: {'status': self.Status.Error, 'errorMessage': e.args[0]}}})
         self.save(is_sync_engine=False)
 
     def get_savepoint_path(self):
@@ -372,16 +374,20 @@ class FlinkTaskStatusInfoSerializer(DataSerializer):
     errorMessage = s.CharField(label=_('错误信息'), required=False)
 
 
-class FlinkJobStatusInfoSerializer(DataSerializer):
-    """
-    Flink Job 状态信息
-    """
+class FlinkJobStatusSerializer(DataSerializer):
     config = FlinkTaskStatusInfoSerializer(required=False)
     source = FlinkTaskStatusInfoSerializer(required=False)
     slink = FlinkTaskStatusInfoSerializer(required=False)
     udf = FlinkTaskStatusInfoSerializer(required=False)
     table_config = FlinkTaskStatusInfoSerializer(required=False)
     task = FlinkTaskStatusInfoSerializer(required=False)
+
+
+class FlinkJobStatusInfoSerializer(DataSerializer):
+    """
+    Flink Job 状态信息
+    """
+    status_info = FlinkJobStatusSerializer(label=_('任务状态信息'), required=False)
     engine_url = s.CharField(label=_('任务引擎地址'), required=False)
 
 

@@ -208,12 +208,12 @@ class FlinkJobEngine(BaseFlinkJobEngine):
         return url
 
     def get_status_info(self):
-
         result = self.zc.get_all_paragraphs(self.job_id)
         paragraphs_status_list = result['body']['paragraphs']
         task_name_order_list = self.get_task_name_order_list()
         status_info = OrderedDict(zip(task_name_order_list, paragraphs_status_list))
         return status_info
+
 
     def _check_result(self, zc_result):
         return zc_result['status'] == 'OK'

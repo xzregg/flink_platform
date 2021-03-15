@@ -2,7 +2,7 @@
     <div class="row">
 
         <div class="col-sm-5" role="tablist" aria-multiselectable="true">
-            <div v-for="(item,k,index) in model.status_info" class=" ">
+            <div v-for="(item,k,index) in model.status_info.status_info" class=" ">
                 <div class="panel-heading"
                      role="tab"
                      :id="'heading_'+ k"
@@ -46,7 +46,9 @@
                 </tr>
                 <tr>
                     <td>Flink Job URL</td>
-                    <td>((model.flink_job_url))</td>
+                    <td>
+                        <a :href="model.flink_job_url" target="_blank">((model.flink_job_url))</a>
+                    </td>
                 </tr>
                 <tr>
                     <td>最后保存点</td>
@@ -55,6 +57,10 @@
                 <tr>
                     <td>启动点</td>
                     <td style="width: 200px">((model.execution_savepoint_path))</td>
+                </tr>
+                 <tr v-if="model.status_info.engine_url">
+                    <td>任务引擎地址</td>
+                     <td style="width: 200px"><a :href="model.status_info.engine_url" target="_blank">((model.status_info.engine_url))</a></td>
                 </tr>
                 </tbody>
             </table>
