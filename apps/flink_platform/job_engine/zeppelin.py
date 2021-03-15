@@ -10,10 +10,10 @@ import time
 from typing import List
 
 from addict import Dict
-from requests.exceptions import Timeout
-
 from framework.utils import OrderedDict
 from framework.utils.myenum import Enum
+from requests.exceptions import Timeout
+
 from . import BaseFlinkJobEngine, EngineStateCode
 from .zeppelin_pyclient import ZeppelinClient
 from ..models.flink_job import FlinkJob, ParagraphProperties, TaskTypes
@@ -92,7 +92,7 @@ class FlinkJobEngine(BaseFlinkJobEngine):
         # todo 增加最后一次执行的 execution_savepoint_path
         if self.execution_savepoint_path:
             code_list.append('%s %s' % (
-            ParagraphProperties.option_items.executionSavepoint.field_name, self.execution_savepoint_path))
+                    ParagraphProperties.option_items.executionSavepoint.field_name, self.execution_savepoint_path))
 
         return '\n'.join(code_list)
 
@@ -214,7 +214,6 @@ class FlinkJobEngine(BaseFlinkJobEngine):
         status_info = OrderedDict(zip(task_name_order_list, paragraphs_status_list))
         return status_info
 
-
     def _check_result(self, zc_result):
         return zc_result['status'] == 'OK'
 
@@ -223,13 +222,19 @@ class FlinkJobEngine(BaseFlinkJobEngine):
         self.state.code = EngineStateCode.READY
         for task_type_name, _ in self.get_task_code_generator().items():
             paragraph_id = self.get_task_id(task_type_name)
+            client = self.zc.run_paragraph_sync
             if task_type_name == TaskTypes.MainTask:
                 # 同步方式启动主任务,会等待任务完成才返回,设置 3 秒超时断开
                 self.zc.set_timeout(3);
-            try:
+                try:
+                    # 执行两次 保证运行
+                    result = self.zc.run_paragraph_sync(task_type_name, self.job_id, paragraph_id)
+                    result = self.zc.run_paragraph_sync(task_type_name, self.job_id, paragraph_id)
+                except Timeout as e:
+                    result = {'status': 'OK', 'msg': 'Timeout'}
+
+            else:
                 result = self.zc.run_paragraph_sync(task_type_name, self.job_id, paragraph_id)
-            except Timeout as e:
-                result = {'status': 'OK', 'msg': 'Timeout'}
 
             run_info[task_type_name] = result.get('body', result)
             if not self._check_result(result):
@@ -240,6 +245,7 @@ class FlinkJobEngine(BaseFlinkJobEngine):
                 self.state.code = EngineStateCode.FAILURE
                 self.state.msg = run_info[task_type_name].get('msg', 'ERROR')
                 break
+
             self.state.code = EngineStateCode.SUCCESS
         self.state.data = run_info
         return self.state
@@ -249,11 +255,11 @@ class FlinkJobEngine(BaseFlinkJobEngine):
         if self.execution_savepoint_path or (
                 datetime.datetime.now() - self.flink_job_model.update_datetime).seconds > 5:
             self.save_job()
-            time.sleep(0.2)
+            time.sleep(0.3)
         self.run_all_paragraph_sync()
         if self.state.code == EngineStateCode.SUCCESS:
             self.wait_status([self.flink_job_model.Status.Running, self.flink_job_model.Status.Finished,
-                              self.flink_job_model.Status.Pending, self.flink_job_model.Status.Abort])
+                              self.flink_job_model.Status.Pending, self.flink_job_model.Status.Error])
 
         return self.state
 
