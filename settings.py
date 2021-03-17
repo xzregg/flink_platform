@@ -18,5 +18,4 @@ FLINK_SAVEPOINT_PATH_BACKEND_ADDRESS = "http://h1:50070"
 FLINK_ZEPPELIN_API_ADDRESS = 'http://h29:18080/'
 
 PROJECT_ROOT = BASE_DIR
-
-from config.logging_config import LOGGING
+TITLE = 'Flink Platform'

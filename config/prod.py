@@ -18,6 +18,8 @@ from settings import BASE_DIR
 logging.info('This env is production,DEBUG = False')
 logging.info('BASE_DIR: %s' % BASE_DIR)
 
+CELERY_BROKER_URL = 'redis://:123456@h29:6379/1'
+
 DATABASES = {
         'default': {
                 # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or
