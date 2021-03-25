@@ -47,6 +47,8 @@ execution.checkpointing.timeout 10min
 # 设置任务取消后保留hdfs上的checkpoint文件
 execution.checkpointing.externalized-checkpoint-retention RETAIN_ON_CANCELLATION
 execution.savepoint.ignore-unclaimed-state true
+#taskmanager.memory.process.size 1024mb
+
     '''
 
 
