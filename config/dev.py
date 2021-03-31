@@ -79,9 +79,7 @@ if 'test' in sys.argv:
 DATABASES['read'] = DATABASES['default'].copy()
 DATABASES['write'] = DATABASES['default'].copy()
 
-PASSWORD_HASHERS = [
-        'django.contrib.auth.hashers.MD5PasswordHasher',
-]
+
 # vINSTALLED_APPS += ['django_extensions']
 
 # INSTALLED_APPS += ['debug_toolbar']

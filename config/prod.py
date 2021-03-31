@@ -20,6 +20,17 @@ logging.info('BASE_DIR: %s' % BASE_DIR)
 
 CELERY_BROKER_URL = 'redis://:123456@h29:6379/1'
 
+CHANNEL_LAYERS = {
+        "default": {
+                "BACKEND": "channels_redis.core.RedisChannelLayer",
+                "CONFIG" : {
+                        "hosts": ["redis://:123456@h29:6379/2"],
+                },
+        },
+}
+
+
+
 DATABASES = {
         'default': {
                 # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or
@@ -78,3 +89,4 @@ DATABASES = {
 DATABASES['read'] = DATABASES['default']
 DATABASES['write'] = DATABASES['default']
 DATABASES['db'] = DATABASES['default']
+
