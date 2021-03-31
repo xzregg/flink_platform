@@ -122,7 +122,7 @@
                                 <span slot="tab">Source<span class="badge"></span></span>
 
                                 <div class="dataset-cont" style="height: 80%;overflow: auto">
-                                    <a-tree v-if="dataset.source.length>0" :show-icon="false"
+                                    <a-tree v-if="dataset.source.length>0" :show-icon="false" :block-node="true"
                                             v-model="model.source_list"
                                             checkable
                                             default-expand-parent default-expand-all
@@ -155,7 +155,7 @@
                             <a-tab-pane key="2" :force-render="true">
                                 <span slot="tab">Slink<span class="badge"></span></span>
                                 <div class="dataset-cont" style="height: 80%;overflow: auto">
-                                    <a-tree v-if="dataset.slink.length>0"
+                                    <a-tree v-if="dataset.slink.length>0" :block-node="true"
                                             v-model="model.slink_list" :show-icon="false"
                                             checkable :selectable="true"
                                             default-expand-parent default-expand-all
@@ -185,7 +185,7 @@
                             <a-tab-pane key="3" :force-render="true">
                                 <span slot="tab">UDF<span class="badge"></span></span>
                                 <div class="dataset-cont" style="height: 80%;overflow: auto">
-                                    <a-tree v-if="dataset.udf.length>0"
+                                    <a-tree v-if="dataset.udf.length>0" :block-node="true"
                                             v-model="model.udf_list" :show-icon="false"
                                             :selectable="true" checkable
                                             default-expand-parent default-expand-all
@@ -840,7 +840,6 @@
                     function genrate_tag_dataset(tag_dataset_list, target_tree_dataset_list, datasetType) {
                         var parent_children_list = null
                         for (var connector_name in tag_dataset_list) {
-
 
                             var connector_children = null
 

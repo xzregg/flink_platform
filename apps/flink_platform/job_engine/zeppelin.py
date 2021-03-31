@@ -90,9 +90,9 @@ class FlinkJobEngine(BaseFlinkJobEngine):
         code_list.append('state.savepoints.dir %s' % self.flink_job_model.get_savepoint_path())
 
         # todo 增加最后一次执行的 execution_savepoint_path
-        if self.execution_savepoint_path:
-            code_list.append('%s %s' % (
-                    ParagraphProperties.option_items.executionSavepoint.field_name, self.execution_savepoint_path))
+        #if self.execution_savepoint_path:
+        #    code_list.append('%s %s' % (
+        #            ParagraphProperties.option_items.executionSavepoint.field_name, self.execution_savepoint_path))
 
         return '\n'.join(code_list)
 
