@@ -98,7 +98,7 @@ class Migration(migrations.Migration):
                 ('update_datetime', models.DateTimeField(auto_now=True, verbose_name='更新时间')),
                 ('name', models.CharField(db_index=True, max_length=100, validators=[django.core.validators.RegexValidator('^[a-z][\\d\\w_]+$', '字母组合,符合^[a-z][\\d\\w_]+$')], verbose_name='任务组名')),
                 ('alias', models.CharField(max_length=100, verbose_name='任务组描述')),
-                ('author', models.ForeignKey(on_delete='作者', to=settings.AUTH_USER_MODEL)),
+                ('author', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, to=settings.AUTH_USER_MODEL)),
                 ('jobs', models.ManyToManyField(related_name='任务', to='flink_platform.FlinkJob')),
                 ('parent', models.ForeignKey(null=True, on_delete=django.db.models.deletion.DO_NOTHING, to='flink_platform.FlinkJobGroup', verbose_name='上级')),
             ],

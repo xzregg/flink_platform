@@ -410,7 +410,7 @@ class FlinkStorageFileListSerializer(DataSerializer):
 class FlinkJobGroup(BaseModel):
     name = models.CharField(_('任务组名'), max_length=100, null=False, blank=False, validators=[LetterValidator],
                             db_index=True)
-    author = models.ForeignKey(User, _('作者'))
+    author = models.ForeignKey(User, verbose_name=_('作者'),on_delete=models.DO_NOTHING)
     parent = models.ForeignKey(to='self', verbose_name=_("上级"), on_delete=models.DO_NOTHING, null=True)
     alias = models.CharField(_('任务组描述'), max_length=100, null=False, blank=False)
     jobs = models.ManyToManyField(FlinkJob, _('任务'))
