@@ -243,7 +243,7 @@ class FlinkJob(BaseModel):
         """
         try:
             status_info_map = self.job_engine.status_info
-
+            old_status = self.status
             self.update_job_url()
             self.update_job_id()
             self.update_last_execution_savepoint()
@@ -252,6 +252,8 @@ class FlinkJob(BaseModel):
             for k, status_info in status_info_map.items():
                 task_status = status_info.get('status', 'ERROR')
                 self.status = self.Status(task_status)
+                if self.status in [self.Status.Error,self.Status.Finished]:
+                    self.stop_datetime = datetime.datetime.now()
                 # 非完成的状态
                 if not task_status in [self.Status.Finished, self.Status.Running]:
                     break
