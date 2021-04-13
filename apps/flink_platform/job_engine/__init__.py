@@ -9,7 +9,7 @@ import json
 import logging
 
 import requests
-from framework.utils import ObjectDict, OrderedDict,trace_msg
+from framework.utils import ObjectDict, OrderedDict, trace_msg
 from framework.utils.cache import CacheAttribute
 from framework.utils.myenum import Enum
 from furl import furl
@@ -104,7 +104,7 @@ class BaseFlinkJobEngine(object):
     def update_main_task_status(self):
         from ..models.flink_job import FlinkJob, TaskTypes
         ret = {'status': FlinkJob.Status.Error}
-        if self.flink_job_id and self.flink_job_url:
+        if self.flink_job_id and self.flink_job_url and self.flink_job_model.status != self.flink_job_model.Status.Abort:
             try:
                 base_furl = furl(self.flink_job_url)
                 base_furl.fragment = ''
@@ -117,8 +117,10 @@ class BaseFlinkJobEngine(object):
                     self.status_info[TaskTypes.MainTask].update(ret)
             except json.decoder.JSONDecodeError as e:
                 pass
+            except KeyError as e:
+                pass
             except Exception as e:
-                logging.error(trace_msg())
+                logging.error('%s get main task statue error %s' % (self.flink_job_model.name, trace_msg()))
         return self.status_info
 
     def delete_job(self):

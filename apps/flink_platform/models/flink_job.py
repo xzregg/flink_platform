@@ -247,7 +247,7 @@ class FlinkJob(BaseModel):
             self.update_job_url()
             self.update_job_id()
             self.update_last_execution_savepoint()
-            status_info_map = self.job_engine.update_main_task_status()
+            self.job_engine.update_main_task_status()
             self.set_status_info(status_info_map)
             for k, status_info in status_info_map.items():
                 task_status = status_info.get('status', 'ERROR')

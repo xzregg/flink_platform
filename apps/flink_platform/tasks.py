@@ -40,7 +40,7 @@ def restart_flink_job(self: Task, flink_job_model_id, is_force, use_last_savepoi
 @app.task(bind=True, ignore_result=True)
 def cron_refresh_flink_job_info(self: Task):
     flink_jobs: List[FlinkJob] = FlinkJob.objects.exclude(
-            status__in=[FlinkJob.Status.Finished, FlinkJob.Status.Abort, FlinkJob.Status.Error]).exclude(job_id='').defer(
+            status__in=[FlinkJob.Status.Finished]).exclude(job_id='').defer(
         'code_paragraphs',
         'flink_table_config',
         'task_properties')
@@ -62,7 +62,7 @@ app.conf.beat_schedule = {
         },
         'refresh_flink_job_info-every-2-seconds': {
                 'task'    : 'flink_platform.tasks.cron_refresh_flink_job_info',
-                'schedule': 2,  # crontab('*','*','*','*','*'),
+                'schedule': 5,  # crontab('*','*','*','*','*'),
                 'args'    : ()
         },
 }
