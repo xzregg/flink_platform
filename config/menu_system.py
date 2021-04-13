@@ -62,5 +62,5 @@ _m('29',_('用户权限'),'',0,0),
 	_m('29.4',_('字典_接口'),'/log/dict/interface',1, 0),
 	_m('29.5',_('用户自定义菜单'),'/system/menu/user_menu_list',1, 0),
 	_m('29.6',_('消息列表'),'system/message/message_list',1, 0),
-	_m('29.6',_('任务查询'),'celery_task_result/query',is_show=0,is_log= 0)
+	_m('29.6',_('任务查询'),'celery_task/query',is_show=0,is_log= 0)
 ]

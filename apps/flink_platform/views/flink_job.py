@@ -3,7 +3,7 @@
 
 
 from drf_yasg.utils import swagger_auto_schema
-from celery_task_result.views import TaskIdMapSerializer
+from celery_task.views import TaskIdMapSerializer
 
 from flink_platform.models import FlinkJob, FlinkJobStatusInfoSerializer, FlinkStorageFileListSerializer
 from framework.filters import MyFilterBackend, MyFilterSerializer, OrderingFilter
