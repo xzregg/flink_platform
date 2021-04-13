@@ -4,7 +4,7 @@ import datetime
 import logging
 from typing import List
 
-from celery_task_result.models import AssociatedTaskResult, ReturnResultTask
+from celery_task.models import AssociatedTaskResult, ReturnResultTask
 from config.celery_app import app, Task
 from .models.flink_job import FlinkJob
 
